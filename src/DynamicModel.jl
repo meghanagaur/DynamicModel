@@ -127,7 +127,7 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
                     z = zt[n]
                     if ε == 1 # can solve analytically
                         b = -z/w0
-                        aa = (-b + sqrt(b^2))/2*(1 + ψ_t*σ_η^2)
+                        aa = (-b + sqrt(b^2))/2(1 + ψ_t*σ_η^2)
                     else # exclude the choice of zero effort
                         aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0.0, 10.0) 
                     end
@@ -201,7 +201,8 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
         iter1 += 1
     end
 
-    return θ_0, flag, Y_0, IR, ω(0), tol1, tol2, iter1, iter2
+    return (θ_0 = θ_0, flag = flag, Y_0 = Y_0, IR = IR, ω0 = ω(0), tol1 =tol1, 
+    tol2 = tol2, iter1 =iter1, iter2=iter2) 
 end
 
 end # module
