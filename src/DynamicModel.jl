@@ -201,7 +201,7 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
         iter1 += 1
     end
 
-    return (θ_0 = θ_0, flag = flag, Y_0 = Y_0, IR = IR, ω0 = ω(0), tol1 =tol1, 
+    return (θ = θ_0, flags = flag, Y_0 = Y_0, V = IR, ω0 = ω(0), tol1 =tol1, 
     tol2 = tol2, iter1 =iter1, iter2=iter2) 
 end
 
