@@ -50,7 +50,7 @@ z0  = initial productivity
 ψ   = pass-through parameters
 """
 function model(; T = 5, β = 0.99, s = 0.2, κ = 0.213, ι = 1.25, ε = 0.5,
-    σ_η = 0.1, ρ = 0.99, σ_ϵ = 0.1, b = 0.6, z0 = 1.0, N_z = 11, savings = false)
+    σ_η = 0.1, ρ = 0.99, σ_ϵ = 0.1, b = 0.7, z0 = 1.0, N_z = 11, savings = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     v(c)    = log(c)                                # utility from consumption                
@@ -177,9 +177,9 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
                 t2    = h(az[n,t+1])
                 t3    = ω(t+1)
                 if savings == false
-                    v0[n] += (log(w0) - t1 - t2)*(β*(1-s))^t + t3*β*s
+                    v0[n] += (log(w0) - t1 - t2 + t3*β*s)*(β*(1-s))^t 
                 else
-                    v0[n] += (log(w0) + t1 - t2)*(β*(1-s))^t + t3*β*s
+                    v0[n] += (log(w0) + t1 - t2 + t3*β*s)*(β*(1-s))^t
                 end
             end
             idx        = findall(isequal(T+1), vec(sum(ZZ .== zz[:,n], dims=1)))
