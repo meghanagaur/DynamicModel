@@ -50,7 +50,7 @@ z0  = initial productivity
 ψ   = pass-through parameters
 """
 function model(; T = 5, β = 0.99, s = 0.2, κ = 0.213, ι = 1.25, ε = 0.5,
-    σ_η = 0.1, ρ = 0.99, σ_ϵ = 0.1, b = 0.7, z0 = 1.0, N_z = 11, savings = false)
+    σ_η = 0.1, ρ = 0.99, σ_ϵ = 0.1, b = 0.73, z0 = 1.0, N_z = 17, savings = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     v(c)    = log(c)                                # utility from consumption                
@@ -75,7 +75,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  10^-8)
+function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10^-6)
     
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
@@ -102,8 +102,8 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
     yy    = similar(zz')
     flag  = zeros(Int64, size(zz'))
 
-    # Updating parameter
-    α     = 0.5
+    # Dampening parameter
+    α     = 0.25
 
     # look for a fixed point in θ
     @inbounds while err1 > tol1 && iter1 < max_iter1
@@ -126,14 +126,13 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
                 @inbounds for n = 1:length(zt)
                     z = zt[n]
                     if ε == 1 # can solve analytically
-                        b = -z/w0
-                        aa = (-b + sqrt(b^2))/2(1 + ψ_t*σ_η^2)
+                        aa = (z/w0 + sqrt((z/w0)^2))/2(1 + ψ_t*σ_η^2)
                     else # exclude the choice of zero effort
                         aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0.0, 10.0) 
                     end
 
                     # create a flag matrix -- decide how to handle any violations
-                    idx1            = findall(isequal(z),zz[t+1, :])
+                    idx1            = findall(isequal(z), zz[t+1, :])
                     az[idx1,t+1]    .= isempty(aa) ? 0 : aa[1]
                     flag[idx1,t+1]  .= ((z*az[n, t+1]/w0 +  (ψ_t/ε)*(hp(az[n,t+1])*σ_η)^2) < 0) + isempty(aa) + (w0 < 0)
                     yy[idx1,t+1]    .= ((β*(1-s))^(t))*az[n,t+1]*z
@@ -160,7 +159,6 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
 
             #Y_0  = (Y_lb + Y_ub)/2  # converges slowly
             Y_0  = α*Y_0 + (1-α)*Y_1 # converges faster
-            #Y_0  = Y_1              # converges but will have flags 
             #println(Y_0)
             iter2 += 1
         end
@@ -196,13 +194,13 @@ function solveModel(m; max_iter1 = 20, max_iter2 = 1000, tol1 = 10^-6, tol2 =  1
             θ_ub  = copy(θ_0)
         end
 
-        #println(θ_0)
+        println(θ_0)
         θ_0 = (θ_lb + θ_ub)/2
         iter1 += 1
     end
 
-    return (θ = θ_0, flags = flag, Y_0 = Y_0, V = IR, ω0 = ω(0), tol1 =tol1, 
-    tol2 = tol2, iter1 =iter1, iter2=iter2) 
+    return (θ = θ_0, flags = flag, Y = Y_0, V = IR, ω0 = ω(0), err1 = err1, 
+    err2 = err2, iter1 = iter1, iter2 = iter2) 
 end
 
 end # module
