@@ -2,7 +2,7 @@ module DynamicModel
 
 # Solve the dynamic EGSS model (first pass)
 
-export model, solveModel
+export model, solveModel, simulateProd
 
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase
@@ -13,7 +13,7 @@ include("dep/rouwenhorst.jl")
 Simulate N {z_t} paths, given transition probs and 
 productivity grid, and return probability of each path.
 """
-function simulate(P_z, zgrid, T; N = 10000, seed = 111)
+function simulateProd(P_z, zgrid, T; N = 10000, seed = 111)
 
     Random.seed!(seed)
     sim      = rand(T, N)  # draw uniform numbers in (0,1)
@@ -78,7 +78,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10^-6, noisy = true)
+function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10^-6, noisy = true)
     
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
@@ -95,7 +95,7 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
     IR   = 1.0             # initalize IR for export
 
     #  simulate productivity draws
-    ZZ, probs   = simulate(P_z, zgrid, T+1)
+    ZZ, probs   = simulateProd(P_z, zgrid, T+1)
     #AZ          = similar(ZZ, size(ZZ))
     YY          = similar(ZZ, size(ZZ,2))
 
