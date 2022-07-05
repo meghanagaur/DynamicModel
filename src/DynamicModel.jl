@@ -62,8 +62,11 @@ function model(; T = 15, β = 0.99, s = 0.2, κ = 0.213, ι = 1.25, ε = 0.5,
     zgrid     = exp.(logz)                          # actual productivity grid
 
     # pass-through parameters. Note: there is a 0th period
-    ψ = reverse(1 ./[mapreduce(t-> (β*(1-s))^t, +, [0:xx;]) for xx = 0:T])
-
+    ψ    = Dict{Int64, Float64}()
+    temp = reverse(1 ./[mapreduce(t-> (β*(1-s))^t, +, [0:xx;]) for xx = 0:T])
+    for t = 0:T
+        ψ[t] = temp[t+1]
+    end
     # value of unemployment independent of z_t for now
     ω(t) = log(b)*(1 - β^(T-t+1))/(1-β)
     
@@ -122,11 +125,11 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
 
-            w0 = ψ[1+1]*(Y_0 - κ/q(θ_0)) # wages at t = 0
+            w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0
 
             @inbounds for t = 0:T
                 zt          = unique(zz[t+1, :])  
-                ψ_t         = ψ[t + 1]
+                ψ_t         = ψ[t]
                 @inbounds for n = 1:length(zt)
                     z = zt[n]
                     if ε == 1 # can solve analytically
@@ -169,12 +172,12 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
         # Numerical approximation of expected lifetime utility
         V0 = zeros(size(ZZ,2))
         v0 = zeros(size(zz,2))
-        w0 = ψ[1+1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
+        w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
 
         @inbounds for n = 1:size(zz,2)
             t1 = 0
             @inbounds for t = 0:T
-                t1    += (t == 0) ? 0 : 0.5*(ψ[t + 1]*hp(az[n,t+1])*σ_η)^2 
+                t1    += (t == 0) ? 0 : 0.5*(ψ[t]*hp(az[n,t+1])*σ_η)^2 
                 t2    = h(az[n,t+1])
                 t3    = ω(t+1)
                 if savings == false
