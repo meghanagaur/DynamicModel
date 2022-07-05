@@ -4,8 +4,8 @@ module DynamicModel
 
 export model, solveModel
 
-using LinearAlgebra, Distributions, Random, Interpolations, ForwardDiff,
-BenchmarkTools, Parameters, StatsBase, Roots, Distributed
+using DataStructures, Distributions, ForwardDiff, Interpolations,
+ LinearAlgebra, Parameters, Random, Roots, StatsBase
 
 include("dep/rouwenhorst.jl")
 
