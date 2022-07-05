@@ -49,8 +49,8 @@ z0  = initial productivity
 ε   = Frisch elasticity, disutility of effort
 ψ   = pass-through parameters
 """
-function model(; T = 5, β = 0.99, s = 0.2, κ = 0.213, ι = 1.25, ε = 0.5,
-    σ_η = 0.1, ρ = 0.99, σ_ϵ = 0.1, b = 0.73, z0 = 1.0, N_z = 17, savings = false)
+function model(; T = 15, β = 0.99, s = 0.2, κ = 0.213, ι = 1.25, ε = 0.5,
+    σ_η = 0.1, ρ = 0.99, σ_ϵ = 0.1, b = 0.68, z0 = 1.0, N_z = 17, savings = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     v(c)    = log(c)                                # utility from consumption                
@@ -75,7 +75,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10^-6)
+function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10^-6, noisy = true)
     
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
@@ -86,20 +86,24 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
     iter2  = 1
 
     θ_lb = 0.0             # lower search bound
-    θ_ub = 2.0             # upper search bound
+    θ_ub = 1.0             # upper search bound
     θ_0  = (θ_lb + θ_ub)/2 # initial guess for θ
     Y_0  = 1.0             # initalize Y_0 for export
     IR   = 1.0             # initalize IR for export
 
     #  simulate productivity draws
     ZZ, probs   = simulate(P_z, zgrid, T+1)
-    AZ          = similar(ZZ, size(ZZ))
+    #AZ          = similar(ZZ, size(ZZ))
     YY          = similar(ZZ, size(ZZ,2))
 
     # reduce computation time by looking at unique draws
     zz    = unique(ZZ, dims=2)
     az    = similar(zz')
     yy    = similar(zz')
+    idx   =  Dict{Int64, Vector{Int64}}()
+    @inbounds for n = 1:size(zz,2)
+        push!(idx, n => findall(isequal(T+1), vec(sum(ZZ .== zz[:,n], dims=1))) )
+    end   
     flag  = zeros(Int64, size(zz'))
 
     # Dampening parameter
@@ -112,7 +116,7 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
         iter2  = 1
 
         Y_lb = κ/q(θ_0)         # lower search bound
-        Y_ub = 100*κ/q(θ_0)     # upper search bound
+        Y_ub = 50*κ/q(θ_0)      # upper search bound
         Y_0  = (Y_lb + Y_ub)/2  # initial guess for Y
 
         # look for a fixed point in Y0
@@ -128,13 +132,13 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
                     if ε == 1 # can solve analytically
                         aa = (z/w0 + sqrt((z/w0)^2))/2(1 + ψ_t*σ_η^2)
                     else # exclude the choice of zero effort
-                        aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0.0, 10.0) 
+                        aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0) , eps(), Y_0) 
                     end
 
                     # create a flag matrix -- decide how to handle any violations
-                    idx1            = findall(isequal(z), zz[t+1, :])
+                    idx1             = findall(isequal(z), zz[t+1, :])
                     az[idx1,t+1]    .= isempty(aa) ? 0 : aa[1]
-                    flag[idx1,t+1]  .= ((z*az[n, t+1]/w0 +  (ψ_t/ε)*(hp(az[n,t+1])*σ_η)^2) < 0) + isempty(aa) + (w0 < 0)
+                    flag[idx1,t+1]  .= ((z*az[n, t+1]/w0 + (ψ_t/ε)*(hp(az[n,t+1])*σ_η)^2) < 0) + isempty(aa) #+ (w0 < 0)
                     yy[idx1,t+1]    .= ((β*(1-s))^(t))*az[n,t+1]*z
                 end  
             end
@@ -142,9 +146,8 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
             # Expand
             y = sum(yy,dims=2)
             @inbounds for n = 1:size(zz,2)
-                idx        = findall(isequal(T+1), vec(sum(ZZ .== zz[:,n], dims=1)))
-                YY[idx]    .= y[n]
-                AZ[:,idx]  .= az[n,:]
+                YY[idx[n]]    .= y[n]
+                #AZ[:,idx]  .= az[n,:]
             end   
 
             # Numerical approximation of E_0[Y]
@@ -166,7 +169,7 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
         # Numerical approximation of expected lifetime utility
         V0 = zeros(size(ZZ,2))
         v0 = zeros(size(zz,2))
-        w0 = ψ[1+1]*(Y_0 - κ/q(θ_0)) # wages at t = 0
+        w0 = ψ[1+1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
 
         @inbounds for n = 1:size(zz,2)
             t1 = 0
@@ -180,8 +183,7 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
                     v0[n] += (log(w0) + t1 - t2 + t3*β*s)*(β*(1-s))^t
                 end
             end
-            idx        = findall(isequal(T+1), vec(sum(ZZ .== zz[:,n], dims=1)))
-            V0[idx]   .= v0[n]
+            V0[idx[n]]   .= v0[n]
         end
 
         # check IR constraint
@@ -194,7 +196,9 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 200, tol1 = 10^-5, tol2 =  10
             θ_ub  = copy(θ_0)
         end
 
-        println(θ_0)
+        if noisy == true
+            println(θ_0)
+        end
         θ_0 = (θ_lb + θ_ub)/2
         iter1 += 1
     end
