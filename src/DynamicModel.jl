@@ -1,7 +1,8 @@
 module DynamicModel
 
 #= Solve the dynamic EGSS model (first pass).
-Focus on the cae without savings. =#
+Focus on the case without savings and where the
+the unemployment benefit is constant. =#
 
 export model, solveModel, simulateProd
 
@@ -14,16 +15,16 @@ include("dep/rouwenhorst.jl")
 Simulate N {z_t} paths, given transition probs and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, T; N = 10000, seed = 111, z0 = median(1:length(zgrid)))
+function simulateProd(P_z, zgrid, TT; N = 20000, seed = 111, z0 = median(1:length(zgrid)))
     Random.seed!(seed)
-    sim      = rand(T, N)  # draw uniform numbers in (0,1)
-    zt       = zeros(Int64, T, N)
+    sim      = rand(TT, N)  # draw uniform numbers in (0,1)
+    zt       = zeros(Int64, TT, N)
     zt[1,:] .= floor(Int64, z0)
     CDF      = cumsum(P_z, dims = 2)
     probs    = ones(N)
 
     @inbounds for i = 1:N
-        @inbounds for t = 2:T
+        @inbounds for t = 2:TT
             zt[t, i]  = findfirst(x-> x >=  sim[t,i], CDF[zt[t-1,i],:]) 
             probs[i]  =  P_z[zt[t-1], zt[t]]*probs[i]
         end
@@ -51,7 +52,7 @@ z0  = initial log productivity
 ψ   = pass-through parameters
 """
 function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.1, 
-    ρ = 0.99, σ_ϵ = 0.01, b = 0.68, z0 = 0.0, μ_z = z0, N_z = 21, savings = false)
+    ρ = 0.99, σ_ϵ = 0.01, b = 0.68, z0 = 0.0, μ_z = z0, N_z = 11, savings = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     v(c)    = log(c)                                # utility from consumption                
@@ -59,7 +60,9 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
     u(c, a) = u(c) - h(a)                           # utility function
     hp(a)   = a^(1/ε)                               # h'(a)
 
-    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)  # discretized logz grid & transition probabilties
+    if (iseven(N_z)) error("N_z must be odd") end 
+
+    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)       # discretized logz grid & transition probabilties
     zgrid     = exp.(logz)                          # actual productivity grid
 
     # pass-through parameters. Note: there is a 0th period
@@ -68,7 +71,7 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
     for t = 0:T
         ψ[t] = temp[t+1]
     end
-    # value of unemployment independent of z_t for now
+    # PV of unemp if you receive b for the remainder of the match 
     ω(t) = log(b)*(1 - β^(T-t+1))/(1-β)
     
     return (T = T, β = β, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
@@ -79,7 +82,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10^-6, noisy = true)
+function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-5, tol2 =  10^-6, noisy = true)
     
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
@@ -103,7 +106,7 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
     YY          = similar(ZZ, size(ZZ,2))
     AZ          = similar(ZZ, size(ZZ))
 
-    # reduce computation of expectations by computing values only for unique sequences
+    # reduce computation time of expectations by computing values only for unique z_t paths 
     zz    = unique(ZZ, dims=2)
     az    = similar(zz')
     yy    = similar(zz')
@@ -126,7 +129,8 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
 
-            w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0
+            #w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0
+            w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0
 
             @inbounds for t = 0:T
                 zt          = unique(zz[t+1, :])  
@@ -139,7 +143,7 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
                         aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
                     end
 
-                    # create a flag matrix -- decide how to handle any violations
+                    # create a flag matrix -- if neccessary, will need to handle violations
                     idx1             = findall(isequal(z), zz[t+1, :])
                     az[idx1,t+1]    .= isempty(aa) ? 0 : aa[1]
                     flag[idx1,t+1]  .= ((z*az[n, t+1]/w0 + (ψ_t/ε)*(hp(az[n,t+1])*σ_η)^2) < 0) + isempty(aa) + (w0 < 0)
@@ -157,13 +161,16 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
             Y_1  = mean(YY)
             err2 = abs(Y_0 - Y_1)
 
+            #=
             if Y_1 < Y_0 
                 Y_ub  = copy(Y_0)
             elseif Y_1 > Y_0 || w0 < 0
                 Y_lb  = copy(Y_0)
             end
-
-            Y_0  = α*Y_0 + (1-α)*Y_1
+            Y_0  = 0.5(Y_lb + Y_ub) 
+            =#
+            
+            Y_0  = α*Y_0 + (1-α)*Y_1 # faster convergence
             #println(Y_0)
             iter2 += 1
         end
@@ -171,7 +178,8 @@ function solveModel(m; max_iter1 = 25, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
         # Numerical approximation of expected lifetime utility
         V0 = zeros(size(ZZ,2))
         v0 = zeros(size(zz,2))
-        w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
+        #w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
+        w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
 
         @inbounds for n = 1:size(zz,2)
             t1 = 0
