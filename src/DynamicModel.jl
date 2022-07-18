@@ -15,13 +15,13 @@ include("dep/rouwenhorst.jl")
 Simulate N {z_t} paths, given transition probs and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, TT; N = 20000, seed = 111, z0 = median(1:length(zgrid)))
+function simulateProd(P_z, zgrid, TT; N = 25000, seed = 111, z0 = median(1:length(zgrid)))
     Random.seed!(seed)
     sim      = rand(TT, N)  # draw uniform numbers in (0,1)
     zt       = zeros(Int64, TT, N)
     zt[1,:] .= floor(Int64, z0)
     CDF      = cumsum(P_z, dims = 2)
-    probs    = ones(N)
+    probs    = ones(N) # probably of a given sequence
 
     @inbounds for i = 1:N
         @inbounds for t = 2:TT
@@ -82,8 +82,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 =  10^-8, noisy = true)
-    
+function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
     # set tolerance parameters for inner and outer loops
@@ -101,7 +100,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 =  10
     IR    = 0               # initalize IR for export
     w0    = 0               # initialize expected wage
 
-    #  simulate productivity paths
+    #  simulate the productivity paths
     ZZ, probs   = simulateProd(P_z, zgrid, T+1)
     YY          = similar(ZZ, size(ZZ,2))
     AZ          = similar(ZZ, size(ZZ))
@@ -118,7 +117,6 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 =  10
 
     # look for a fixed point in θ
     @inbounds while err1 > tol1 && iter1 < max_iter1
-
         err2   = 10
         iter2  = 1
 
@@ -128,7 +126,6 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 =  10
 
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
-
             w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0
 
             @inbounds for t = 0:T
@@ -182,12 +179,13 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 =  10
             w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
         end
 
+        # compute LHS of IR constraint
         @inbounds for n = 1:size(zz,2)
             t1 = 0
             @inbounds for t = 0:T
                 t1    += (t == 0) ? 0 : 0.5*(ψ[t]*hp(az[n,t+1])*σ_η)^2 
                 t2    = h(az[n,t+1])
-                t3    = (t == T) ? ω*β : ω*β*s # continuation value
+                t3    = (t == T) ? ω*β : ω*β*s # continuation value upon separation
                 if savings == false
                     v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^t 
                 else
@@ -233,7 +231,7 @@ function simulateWages(model, w0, AZ, ZZ; seed = 145)
     lw       = zeros(size(AZ')) # log wages
     lw[:,1] .= log(w0)          # initial wages
   
-    @views @inbounds for  t=2:T+1, n=1:size(AZ,2)
+    @inbounds for  t=2:T+1, n=1:size(AZ,2)
        lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t,n])*σ_η)^2
     end
 
