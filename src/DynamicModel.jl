@@ -51,8 +51,8 @@ z0  = initial log productivity
 ε   = Frisch elasticity, disutility of effort
 ψ   = pass-through parameters
 """
-function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.1, 
-    ρ = 0.99, σ_ϵ = 0.01, b = 0.68, z0 = 0.0, μ_z = z0, N_z = 11, savings = false)
+function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
+    ρ = 0.999, σ_ϵ = 0.01, b = 0.68, z0 = 0.0, μ_z = z0, N_z = 11, savings = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     v(c)    = log(c)                                # utility from consumption                
@@ -71,9 +71,9 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
     for t = 0:T
         ψ[t] = temp[t+1]
     end
-    # PV of unemp if you receive b for the remainder of the match 
-    ω(t) = log(b)*(1 - β^(T-t+1))/(1-β)
-    
+    # PV of unemp if you consume unemployment benefit forever
+    ω     = log(b)/(1-β)
+
     return (T = T, β = β, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
     σ_ϵ = σ_ϵ, ω = ω, μ_z = μ_z, N_z = N_z, q = q, v = v, ψ = ψ, z0 = z0,
     h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings)
@@ -82,7 +82,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-5, tol2 =  10^-6, noisy = true)
+function solveModel(m; max_iter1 = 150, max_iter2 = 500, tol1 = 10^-6, tol2 =  10^-6, noisy = true)
     
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
@@ -178,31 +178,34 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
         # Numerical approximation of expected lifetime utility
         V0 = zeros(size(ZZ,2))
         v0 = zeros(size(zz,2))
-        #w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
-        w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
+
+        if savings == false
+            #w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
+            w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
+        end
 
         @inbounds for n = 1:size(zz,2)
             t1 = 0
             @inbounds for t = 0:T
                 t1    += (t == 0) ? 0 : 0.5*(ψ[t]*hp(az[n,t+1])*σ_η)^2 
                 t2    = h(az[n,t+1])
-                t3    = ω(t+1)
+                t3    = (t == T) ? ω*β : ω*β*s # continuation value
                 if savings == false
-                    v0[n] += (log(w0) - t1 - t2 + t3*β*s)*(β*(1-s))^t 
+                    v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^t 
                 else
-                    v0[n] += (log(w0) + t1 - t2 + t3*β*s)*(β*(1-s))^t
+                    v0[n] += (log(w0) + t1 - t2 + t3)*(β*(1-s))^t
                 end
             end
-            V0[idx[n]]   .= v0[n]
+            V0[idx[n]] .= v0[n]
         end
 
         # check IR constraint
         IR     = mean(V0)
-        err1   = abs(IR - ω(0))
+        err1   = abs(IR - ω)
 
-        if IR >  ω(0) 
+        if IR > ω
             θ_lb  = copy(θ_0)
-        elseif IR <  ω(0) 
+        elseif IR < ω
             θ_ub  = copy(θ_0)
         end
 
@@ -217,9 +220,15 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-5, tol2 =  10
         AZ[:, idx[n]]   .= az[n,:]
     end
 
-    return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω(0), w0 = w0, mod = m,
+    return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω, w0 = w0, mod = m,
     idx = idx, zz = zz, ZZ = ZZ, az = az, AZ = AZ, flags = flag, 
     err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
+end
+
+"""
+Simulate wage paths, given z, a paths. 
+"""
+function simulateWages()
 end
 
 end # module
