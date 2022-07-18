@@ -4,7 +4,7 @@ module DynamicModel
 Focus on the case without savings and where the
 the unemployment benefit is constant. =#
 
-export model, solveModel, simulateProd
+export model, solveModel, simulateProd, simulateWages
 
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase
@@ -82,7 +82,7 @@ end
 """
 Solve the model using a bisection search on θ 
 """
-function solveModel(m; max_iter1 = 150, max_iter2 = 500, tol1 = 10^-6, tol2 =  10^-6, noisy = true)
+function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 =  10^-8, noisy = true)
     
     @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
@@ -129,7 +129,6 @@ function solveModel(m; max_iter1 = 150, max_iter2 = 500, tol1 = 10^-6, tol2 =  1
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
 
-            #w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0
             w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0
 
             @inbounds for t = 0:T
@@ -180,7 +179,6 @@ function solveModel(m; max_iter1 = 150, max_iter2 = 500, tol1 = 10^-6, tol2 =  1
         v0 = zeros(size(zz,2))
 
         if savings == false
-            #w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
             w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
         end
 
@@ -226,9 +224,22 @@ function solveModel(m; max_iter1 = 150, max_iter2 = 500, tol1 = 10^-6, tol2 =  1
 end
 
 """
-Simulate wage paths, given z, a paths. 
+Simulate wage paths given simulated z, a(z) paths. 
 """
-function simulateWages()
+function simulateWages(model, w0, AZ, ZZ; seed = 145)
+    #Random.seed!(seed)
+    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = model
+
+    lw       = zeros(size(AZ')) # log wages
+    lw[:,1] .= log(w0)          # initial wages
+  
+    @views @inbounds for  t=2:T+1, n=1:size(AZ,2)
+       lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t,n])*σ_η)^2
+    end
+
+    ww = exp.(lw)
+
+    return ww
 end
 
 end # module
