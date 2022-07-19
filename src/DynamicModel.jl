@@ -1,8 +1,7 @@
 module DynamicModel
 
-#= Solve the dynamic EGSS model (first pass).
-Focus on the case without savings and where the
-the unemployment benefit is constant. =#
+#= Solve the dynamic EGSS model (first pass). Focus on
+the case where the unemployment benefit is constant. =#
 
 export model, solveModel, simulateProd, simulateWages
 
@@ -37,12 +36,13 @@ Setup dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
 η ∼ N(0, σ_η^2), log(z_t) = ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
 y = z(a + η).
 β   = discount factor
+r   = interest rate
 s   = exogenous separation rate
 ι   = matching elasticity
 κ   = vacancy-posting cost
 T   = final period (including t = 0)
 ω   = worker's present value from unemployment at time t
-b   = unemployment benefit (flow)
+ξ   = unemployment benefit (flow)
 σ_η = st dev of η distribution
 μ_z = unconditional mean of log productivity
 z0  = initial log productivity
@@ -52,7 +52,7 @@ z0  = initial log productivity
 ψ   = pass-through parameters
 """
 function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.999, σ_ϵ = 0.01, b = 0.68, z0 = 0.0, μ_z = z0, N_z = 11, savings = false)
+    ρ = 0.999, σ_ϵ = 0.01, ξ = 0.68, z0 = 0.0, μ_z = z0, N_z = 11, savings = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     v(c)    = log(c)                                # utility from consumption                
@@ -72,9 +72,9 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
         ψ[t] = temp[t+1]
     end
     # PV of unemp if you consume unemployment benefit forever
-    ω     = log(b)/(1-β)
+    ω     = log(ξ)/(1-β)
 
-    return (T = T, β = β, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
+    return (T = T, β = β, r = 1/β -1, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
     σ_ϵ = σ_ϵ, ω = ω, μ_z = μ_z, N_z = N_z, q = q, v = v, ψ = ψ, z0 = z0,
     h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings)
 end
@@ -83,7 +83,7 @@ end
 Solve the model using a bisection search on θ 
 """
 function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
-    @unpack T, β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
+    @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
     
     # set tolerance parameters for inner and outer loops
     err1  = 10
@@ -126,27 +126,25 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
 
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
-            w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0
-
+            e_wt = (savings == false) ? ψ[0]*(Y_0 - κ/q(θ_0)) : 0 # E_0[w_t] = w_0 w/o savings
             @inbounds for t = 0:T
                 zt          = unique(zz[t+1, :])  
                 ψ_t         = ψ[t]
                 @inbounds for n = 1:length(zt)
                     z = zt[n]
                     if ε == 1 # can solve analytically
-                        aa = (z/w0 + sqrt((z/w0)^2))/2(1 + ψ_t*σ_η^2)
+                        aa = (z/w0 + sqrt((z/e_wt)^2))/2(1 + ψ_t*σ_η^2)
                     else # exclude the choice of zero effort
-                        aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
+                        aa = find_zeros(x -> x - max(z*x/e_wt -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
                     end
 
                     # create a flag matrix -- if neccessary, will need to handle violations
                     idx1             = findall(isequal(z), zz[t+1, :])
                     az[idx1,t+1]    .= isempty(aa) ? 0 : aa[1]
-                    flag[idx1,t+1]  .= ((z*az[n, t+1]/w0 + (ψ_t/ε)*(hp(az[n,t+1])*σ_η)^2) < 0) + isempty(aa) + (w0 < 0)
+                    flag[idx1,t+1]  .= ((z*aa[1]/e_wt + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) + (e_wt < 0)
                     yy[idx1,t+1]    .= ((β*(1-s))^(t))*az[n,t+1]*z
                 end  
             end
-
             # Expand
             y = sum(yy,dims=2)
             @inbounds for n = 1:size(zz,2)
@@ -164,9 +162,8 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
                 Y_lb  = copy(Y_0)
             end
             Y_0  = 0.5(Y_lb + Y_ub) 
-            =#
-            
-            Y_0  = α*Y_0 + (1-α)*Y_1 # faster convergence
+            =#           
+            Y_0  = α*Y_0 + (1-α)*Y_1 # converges faster than the bisection
             #println(Y_0)
             iter2 += 1
         end
@@ -174,17 +171,14 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
         # Numerical approximation of expected lifetime utility
         V0 = zeros(size(ZZ,2))
         v0 = zeros(size(zz,2))
-
-        if savings == false
-            w0 = ψ[0]*(Y_0 - κ/q(θ_0)) # wages at t = 0, from martingale property (w/o savings)
-        end
+        w0 = (savings == false) ? ψ[0]*(Y_0 - κ/q(θ_0)) : 0 # wage at t = 0 
 
         # compute LHS of IR constraint
         @inbounds for n = 1:size(zz,2)
             t1 = 0
             @inbounds for t = 0:T
-                t1    += (t == 0) ? 0 : 0.5*(ψ[t]*hp(az[n,t+1])*σ_η)^2 
-                t2    = h(az[n,t+1])
+                t1    += (t == 0) ? 0 : 0.5*(ψ[t]*hp(az[n,t+1])*σ_η)^2 # utility from consumption
+                t2    = h(az[n,t+1]) # disutility of effort
                 t3    = (t == T) ? ω*β : ω*β*s # continuation value upon separation
                 if savings == false
                     v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^t 
@@ -234,9 +228,7 @@ function simulateWages(model, w0, AZ, ZZ; seed = 145)
     @inbounds for  t=2:T+1, n=1:size(AZ,2)
        lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t,n])*σ_η)^2
     end
-
     ww = exp.(lw)
-
     return ww
 end
 
