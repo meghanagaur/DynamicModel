@@ -359,7 +359,4 @@ function unemploymentValueSavings(β, r, ξ, u, zgrid, P_z; N_b = 250, tol = 10^
     return (v0 = v0, bgrid = bgrid, bb = bb, err = err, iter = iter) 
 end
 
-@time v0, bgrid, bb, err, iter = unemploymentValueSavings(β, r, ξ, u, zgrid, P_z)
-plot(v0[1,:])
-
 end # module
