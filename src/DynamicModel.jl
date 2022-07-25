@@ -1,7 +1,5 @@
-module DynamicModel
-
-#= Solve the dynamic EGSS model (first pass). Focus on
-the case where the unemployment benefit is constant. =#
+#= Solve the dynamic EGSS model (first pass). =#
+module DynamicModel # begin module
 
 export model, solveModel, simulateProd, simulateWages
 
@@ -14,7 +12,7 @@ include("dep/rouwenhorst.jl")
 Simulate N {z_t} paths, given transition probs and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, TT; N = 25000, seed = 111, z0 = median(1:length(zgrid)))
+function simulateProd(P_z, zgrid, TT; N = 25000, seed = 211, z0 = median(1:length(zgrid)))
     Random.seed!(seed)
     sim      = rand(TT, N)  # draw uniform numbers in (0,1)
     zt       = zeros(Int64, TT, N)
@@ -28,7 +26,7 @@ function simulateProd(P_z, zgrid, TT; N = 25000, seed = 111, z0 = median(1:lengt
             probs[i]  =  P_z[zt[t-1], zt[t]]*probs[i]
         end
     end
-    return zgrid[zt], probs
+    return zgrid[zt], probs, zt
 end
 
 """
@@ -40,9 +38,9 @@ r   = interest rate
 s   = exogenous separation rate
 ι   = matching elasticity
 κ   = vacancy-posting cost
-T   = final period (including t = 0)
-ω   = worker's present value from unemployment at time t
-ξ   = unemployment benefit (flow)
+T   = final period 
+ω   = worker's PV from unemployment 
+χ   = prop. of unemp benefit to z OR unemp benefit, depending on procyclical
 σ_η = st dev of η distribution
 μ_z = unconditional mean of log productivity
 z0  = initial log productivity
@@ -50,41 +48,69 @@ z0  = initial log productivity
 σ_ϵ = variance of error in logz process
 ε   = Frisch elasticity, disutility of effort
 ψ   = pass-through parameters
+
+savings     == (EGSS with savings)
+procyclical == (EGSS with procyclical unemployment benefit)
 """
 function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.999, σ_ϵ = 0.01, ξ = 0.68, z0 = 0.0, μ_z = z0, N_z = 11, savings = false)
+    ρ = 0.999, σ_ϵ = 0.01, χ = 0.63, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
+    procyclical = false)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
-    v(c)    = log(c)                                # utility from consumption                
+    u(c)    = log(max(c,eps()))                     # utility from consumption                
     h(a)    = (a^(1 + 1/ε))/(1 + 1/ε)               # disutility from effort  
     u(c, a) = u(c) - h(a)                           # utility function
     hp(a)   = a^(1/ε)                               # h'(a)
+    r       = 1/β -1                                # interest rate        
 
     if (iseven(N_z)) error("N_z must be odd") end 
-
     logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)       # discretized logz grid & transition probabilties
     zgrid     = exp.(logz)                          # actual productivity grid
 
-    # pass-through parameters. Note: there is a 0th period
+    # pass-through parameters
     ψ    = Dict{Int64, Float64}()
     temp = reverse(1 ./[mapreduce(t-> (β*(1-s))^t, +, [0:xx;]) for xx = 0:T])
     for t = 0:T
         ψ[t] = temp[t+1]
     end
-    # PV of unemp if you consume unemployment benefit forever
-    ω     = log(ξ)/(1-β)
 
-    return (T = T, β = β, r = 1/β -1, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
-    σ_ϵ = σ_ϵ, ω = ω, μ_z = μ_z, N_z = N_z, q = q, v = v, ψ = ψ, z0 = z0,
-    h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings)
+    # unemployment benefit value given current state
+    if procyclical == true
+        ξ(z) = χ*z
+    elseif procyclical == false
+        ξ = χ
+    end
+    # PV of unemp if you consume unemployment benefit forever
+    bgrid = 0 
+    if savings == false
+        if procyclical == false
+            ω = log(ξ)/(1-β) # scalar
+        elseif procyclical == true
+            ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
+        end
+    elseif savings == true
+        if procyclical == false
+            ω(b)   = u(ξ + r*b)/(1-β) # scalar function
+        elseif procyclical == true
+            modd   = unemploymentValueSavings(β, r, ξ, u, zgrid, P_z)
+            ω      = modd.v0 # N_z X N_b
+            bgrid  = modd.bgrid
+        end
+    end
+    
+    return (T = T, β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
+    σ_ϵ = σ_ϵ, ω = ω, μ_z = μ_z, N_z = N_z, q = q, ψ = ψ, z0 = z0, bgrid = bgrid,
+    h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings, procyclical = procyclical)
 end
 
 """
-Solve the model using a bisection search on θ 
+Solve the model WITHOUT savings using a bisection search on θ.
 """
 function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
-    @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings = m   
-    
+
+    @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical = m   
+    if (savings) error("Use solveModelSavings") end 
+
     # set tolerance parameters for inner and outer loops
     err1  = 10
     err2  = 10
@@ -99,20 +125,22 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
     Y_0   = 0               # initalize Y_0 for export
     IR    = 0               # initalize IR for export
     w0    = 0               # initialize expected wage
+    ω0    = 0               # initilize PV of unemp 
 
-    #  simulate the productivity paths
-    ZZ, probs   = simulateProd(P_z, zgrid, T+1)
-    YY          = similar(ZZ, size(ZZ,2))
-    AZ          = similar(ZZ, size(ZZ))
+    #  simulate productivity paths
+    ZZ, probs, IZ  = simulateProd(P_z, zgrid, T)
+    YY             = zeros(size(ZZ,2))
+    AZ             = zeros(size(ZZ))
 
     # reduce computation time of expectations by computing values only for unique z_t paths 
-    zz    = unique(ZZ, dims=2)
-    az    = similar(zz')
-    yy    = similar(zz')
-    flag  = zeros(Int64, size(zz'))
+    zz    = unique(ZZ, dims=2)'
+    iz    = unique(IZ, dims=2)'
+    az    = zeros(size(zz))
+    yy    = zeros(size(zz))
+    flag  = zeros(Int64, size(zz))
     idx   =  Dict{Int64, Vector{Int64}}()
-    @inbounds for n = 1:size(zz,2)
-        push!(idx, n => findall(isequal(T+1), vec(sum(ZZ .== zz[:,n], dims=1))) )
+    @inbounds for n = 1:size(zz,1)
+        push!(idx, n => findall(isequal(T), vec(sum(ZZ .== zz[n,:], dims=1))) )
     end   
 
     # look for a fixed point in θ
@@ -126,9 +154,9 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
 
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
-            e_wt = (savings == false) ? ψ[0]*(Y_0 - κ/q(θ_0)) : 0 # E_0[w_t] = w_0 w/o savings
-            @inbounds for t = 0:T
-                zt          = unique(zz[t+1, :])  
+            e_wt = ψ[1]*(Y_0 - κ/q(θ_0)) 
+            @inbounds for t = 1:T
+                zt          = unique(zz[:, t])  
                 ψ_t         = ψ[t]
                 @inbounds for n = 1:length(zt)
                     z = zt[n]
@@ -137,12 +165,11 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
                     else # exclude the choice of zero effort
                         aa = find_zeros(x -> x - max(z*x/e_wt -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
                     end
-
                     # create a flag matrix -- if neccessary, will need to handle violations
-                    idx1             = findall(isequal(z), zz[t+1, :])
-                    az[idx1,t+1]    .= isempty(aa) ? 0 : aa[1]
-                    flag[idx1,t+1]  .= ((z*aa[1]/e_wt + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) + (e_wt < 0)
-                    yy[idx1,t+1]    .= ((β*(1-s))^(t))*az[n,t+1]*z
+                    idx1           = findall(isequal(z), zz[:, t])
+                    az[idx1,t]    .= isempty(aa) ? 0 : aa[1]
+                    flag[idx1,t]  .= ((z*aa[1]/e_wt + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) + (e_wt < 0)
+                    yy[idx1,t]    .= ((β*(1-s))^(t-1))*az[n,t]*z
                 end  
             end
             # Expand
@@ -150,7 +177,6 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
             @inbounds for n = 1:size(zz,2)
                 YY[idx[n]]    .= y[n]
             end   
-
             # Numerical approximation of E_0[Y]
             Y_1  = mean(YY)
             err2 = abs(Y_0 - Y_1)
@@ -170,28 +196,39 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
 
         # Numerical approximation of expected lifetime utility
         V0 = zeros(size(ZZ,2))
-        v0 = zeros(size(zz,2))
-        w0 = (savings == false) ? ψ[0]*(Y_0 - κ/q(θ_0)) : 0 # wage at t = 0 
+        v0 = zeros(size(zz,1))
+        w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wage at t_0
 
         # compute LHS of IR constraint
-        @inbounds for n = 1:size(zz,2)
+        @inbounds for n = 1:size(zz,1)
             t1 = 0
-            @inbounds for t = 0:T
-                t1    += (t == 0) ? 0 : 0.5*(ψ[t]*hp(az[n,t+1])*σ_η)^2 # utility from consumption
-                t2    = h(az[n,t+1]) # disutility of effort
-                t3    = (t == T) ? ω*β : ω*β*s # continuation value upon separation
+            @inbounds for t = 1:T
+                t1    += 0.5*(ψ[t]*hp(az[n,t])*σ_η)^2 # utility from consumption
+                t2    = h(az[n,t]) # disutility of effort
                 if savings == false
-                    v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^t 
+                    # continuation value upon separation
+                    if procyclical == false
+                        t3    = (t == T) ? ω*β : ω*β*s 
+                    elseif procyclical == true
+                        t3    = (t == T) ? β*dot(P_z[iz[n,t],:],ω) : ω[iz[n,t+1]]*β*s
+                    end                    
+                    v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^(t-1) 
                 else
-                    v0[n] += (log(w0) + t1 - t2 + t3)*(β*(1-s))^t
+                    v0[n] += (log(w0) + t1 - t2 + t3)*(β*(1-s))^(t-1)
                 end
             end
             V0[idx[n]] .= v0[n]
         end
 
+        if procyclical == true
+            ω0 = ω[iz[1,1]]
+        elseif procyclical == false
+            ω0 = ω
+        end
+
         # check IR constraint
         IR     = mean(V0)
-        err1   = abs(IR - ω)
+        err1   = abs(IR - ω0)
 
         if IR > ω
             θ_lb  = copy(θ_0)
@@ -210,13 +247,14 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^
         AZ[:, idx[n]]   .= az[n,:]
     end
 
-    return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω, w0 = w0, mod = m,
+    return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m,
     idx = idx, zz = zz, ZZ = ZZ, az = az, AZ = AZ, flags = flag, 
     err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
 end
 
 """
-Simulate wage paths given simulated z, a(z) paths. 
+Simulate wage paths given simulated z, a(z) paths
+WITHOUT savings.
 """
 function simulateWages(model, w0, AZ, ZZ; seed = 145)
     #Random.seed!(seed)
@@ -225,11 +263,103 @@ function simulateWages(model, w0, AZ, ZZ; seed = 145)
     lw       = zeros(size(AZ')) # log wages
     lw[:,1] .= log(w0)          # initial wages
   
-    @inbounds for  t=2:T+1, n=1:size(AZ,2)
-       lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t,n])*σ_η)^2
+    @inbounds for t=2:T, n=1:size(AZ,2)
+       lw[n,t] = lw[n,t-1] + ψ[t]*hp(AZ[t,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t]*hp(AZ[t,n])*σ_η)^2
     end
     ww = exp.(lw)
     return ww
 end
+
+"""
+Simulate wage paths given simulated z, a(z) paths
+WITH savings.
+"""
+function simulateWagesSavings(model, w0, AZ, ZZ; seed = 145)
+    #Random.seed!(seed)
+    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = model
+
+    lw       = zeros(size(AZ')) # log wages
+    lw[:,1] .= log(w0)          # initial wages
+  
+    @inbounds for  t=2:T+1, n=1:size(AZ,2)
+       lw[n,t] = lw[n,t-1] + ψ[t]*hp(AZ[t,n])*rand(Normal(0,σ_η)) + 0.5(ψ[t]*hp(AZ[t,n])*σ_η)^2
+    end
+    ww = exp.(lw)
+    return ww
+end
+
+"""
+Solve for the (infinite horizon) value of unemployment, 
+WITHOUT savings and a procyclical unemployment benefit 
+via value function iteration.
+"""
+function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-6, max_iter = 2000)
+    v0_new = zeros(N_z)
+    v0     = u.(ξ.(zgrid))
+    iter   = 1
+    err    = 10
+
+    # solve via simple value function iteration
+    @inbounds while err > tol && iter < max_iter
+        @inbounds for (iz,z) in enumerate(zgrid)
+            v0_new[iz] = u(ξ.(z)) + β*dot(P_z[iz,:],v0)
+        end
+        err1 = abs.(v0_new - v0)
+        err = maximum(err1)
+        v0  = copy(v0_new)
+        iter +=1
+    end
+
+    return (v0 = v0, err = err, iter = iter) 
+end
+
+"""
+Solve for the (infinite horizon) value of unemployment, given analytically
+initial asset position and a procyclical unemployment benefit
+via value function iteration.
+"""
+function unemploymentValueSavings(β, r, ξ, u, zgrid, P_z; N_b = 250, tol = 10^-6, max_iter = 2000)
+    bmin  = -10
+    bmax  = 50
+    bgrid = LinRange(bmin, bmax, N_b)
+    
+    val  = zeros(N_z, N_b, N_b)
+    @inbounds for ib2 = 1:N_b
+        @inbounds for ib1 = 1:N_b
+            @inbounds for iz1 = 1:N_z
+                c = ξ(zgrid[iz1]) + (1+r)*bgrid[ib1] - bgrid[ib2] 
+                val[iz1,ib1,ib2] = u(c)*(c>0) - Inf*(c<=0)  # c>0 w/ log utility & NBL
+            end
+        end
+    end
+
+    v0_new = zeros(N_z, N_b)
+    v0     = zeros(N_z, N_b)
+    @inbounds for iz = 1:length(zgrid)
+        v0[iz,:] = diag(val[iz,:,:])
+    end
+
+    bb   = zeros(Int64, N_z, N_b)
+    iter = 1
+    err  = 10
+
+    # solve via simple value function iteration
+    @inbounds while err > tol && iter < max_iter
+        @inbounds for ib1 = 1:N_b
+            @inbounds for (iz,z) in enumerate(zgrid)
+                 V = val[iz,ib1,:] .+ β*vec(P_z[iz,:]'*v0)
+                 v0_new[iz, ib1], bb[iz,ib1] = findmax(V)
+            end
+        end
+         err = maximum(abs.(v0_new - v0))
+         v0  = copy(v0_new)
+        iter +=1
+    end
+
+    return (v0 = v0, bgrid = bgrid, bb = bb, err = err, iter = iter) 
+end
+
+@time v0, bgrid, bb, err, iter = unemploymentValueSavings(β, r, ξ, u, zgrid, P_z)
+plot(v0[1,:])
 
 end # module
