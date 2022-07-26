@@ -119,9 +119,9 @@ function solveModelSavings(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol
         end
 
         if procyclical == true
-            ω0 = ω[iz[1,1]]
+            ω0 = ω_bz(zz[1,1],b0)
         elseif procyclical == false
-            ω0 = ω
+            ω0 = ω(b0)
         end
 
         # check IR constraint

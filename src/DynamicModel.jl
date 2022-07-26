@@ -13,7 +13,7 @@ include("dep/DynamicModelSavings.jl")
 Simulate N {z_t} paths, given transition probs and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, TT; N = 25000, seed = 211, z0 = median(1:length(zgrid)))
+function simulateProd(P_z, zgrid, TT; N = 30000, seed = 211, z0 = median(1:length(zgrid)))
     Random.seed!(seed)
     sim      = rand(TT, N)  # draw uniform numbers in (0,1)
     zt       = zeros(Int64, TT, N)
@@ -112,7 +112,7 @@ end
 """
 Solve the model WITHOUT savings using a bisection search on θ.
 """
-function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
+function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical = m   
     if (savings) error("Use solveModelSavings") end 
@@ -276,7 +276,7 @@ Solve for the (infinite horizon) value of unemployment,
 WITHOUT savings and a procyclical unemployment benefit 
 via value function iteration.
 """
-function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-6, max_iter = 2000)
+function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 2000)
     N_z    = length(zgrid)
     v0_new = zeros(N_z)
     v0     = u.(ξ.(zgrid))
