@@ -4,8 +4,8 @@ Solve the model WITH savings using a bisection search on θ.
 function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical, bgrid, b0 = m   
-    if (~savings) error("Use solveModel") end 
-    if (T!=2) error("set T=2 for model with savings") end 
+    if (~savings) error("Use solveModel to solve model without savings") end 
+    if (T!=2) error("set T=2 to solve model with savings") end 
 
     if procyclical
         nodes  = (zgrid, bgrid)
@@ -67,17 +67,22 @@ function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, to
                     ψ_t   = ψ[t]
                     if t==1 
                         aa          = find_zeros(x -> x - max(z*x/term1 - (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
-                        flag[n,t]   = ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) 
+                        flag[n,t]   = ~isempty(aa) ? ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
+
                     elseif t == 2 # exclude the choice of zero effort
                         aa          = find_zeros(x -> x - max(z*x/term1 + (ψ_t/ε)*(hp(x)*σ_η)^2  - 
-                        ((2/ε)*(exp((ψ_t*hp(x)*σ_η)^2))*(ψ_t*hp(x)*σ_η)^2)/ ( exp((ψ[1]*hp(az[n,t-1])*σ_η)^2) 
-                        + exp((ψ_t*hp(x)*σ_η)^2)), 0)^(ε/(1+ε))+ Inf*(x==0), 0, 10)  
-                        flag[n,t]   = ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) 
+                                    ((2/ε)*(exp((ψ_t*hp(x)*σ_η)^2))*(ψ_t*hp(x)*σ_η)^2)/ ( exp((ψ[1]*hp(az[n,t-1])*σ_η)^2) 
+                                    + exp((ψ_t*hp(x)*σ_η)^2)), 0)^(ε/(1+ε))+ Inf*(x==0), 0, 10)  
+
+                        flag[n,t]   = ~isempty(aa) ? (z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2  - 
+                                    ((2/ε)*(exp((ψ_t*hp(aa[1])*σ_η)^2))*(ψ_t*hp(aa[1])*σ_η)^2)/ ( exp((ψ[1]*hp(az[n,t-1])*σ_η)^2) +
+                                    exp((ψ_t*hp(aa[1])*σ_η)^2)) <0) : isempty(aa) 
                     end
-                    term2  += (ψ_t*hp(aa[1])*σ_η)^2
-                    λ[n,t]  = ((β*(1-s))^(t-1))*exp(term2)
-                    az[n,t] = isempty(aa) ? 0 : aa[1]
-                    yy[n,t] = ((β*(1-s))^(t-1))*az[n,t]*z
+                    flag[n,t] += (term1 < 0)
+                    az[n,t]    = isempty(aa) ? 0 : aa[1]
+                    term2     += (ψ_t*hp(az[n,t])*σ_η)^2
+                    λ[n,t]     = ((β*(1-s))^(t-1))*exp(term2)
+                    yy[n,t]    = ((β*(1-s))^(t-1))*az[n,t]*z
                 end  
             end
             # Expand

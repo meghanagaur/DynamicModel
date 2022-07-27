@@ -175,7 +175,8 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
                     # create a flag matrix -- if neccessary, will need to handle violations
                     idx1           = findall(isequal(z), zz[:, t])
                     az[idx1,t]    .= isempty(aa) ? 0 : aa[1]
-                    flag[idx1,t]  .= ((z*aa[1]/w0 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) + (w0 < 0)
+                    flag[idx1,t]  .= ~isempty(aa) ? ((z*aa[1]/w0 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
+                    flag[idx1,t] .+= (w0 < 0)
                     yy[idx1,t]    .= ((β*(1-s))^(t-1))*az[n,t]*z
                 end  
             end
@@ -187,7 +188,6 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
             # Numerical approximation of E_0[Y]
             Y_1  = mean(YY)
             err2 = abs(Y_0 - Y_1)
-
             #= if Y_1 < Y_0 
                 Y_ub  = copy(Y_0)
             elseif Y_1 > Y_0 || w0 < 0
