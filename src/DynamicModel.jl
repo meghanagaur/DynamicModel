@@ -253,12 +253,14 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
 end
 
 """
-Simulate wage paths given simulated z, a(z) paths
-WITHOUT savings.
+Simulate wage paths given already simulated {z, a(z)} paths 
+(i.e. simulate η shocks) WITHOUT savings.
 """
-function simulateWages(model, w0, AZ, ZZ; seed = 123)
+function simulateWages(sol; seed = 123)
     Random.seed!(seed)
-    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = model
+
+    @unpack AZ, ZZ, mod, w0 = sol
+    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = mod
 
     N        = size(AZ,2)
     lw       = zeros(N,T+1) # log wages
@@ -267,8 +269,7 @@ function simulateWages(model, w0, AZ, ZZ; seed = 123)
     @inbounds for t=2:T+1, n=1:size(AZ,2)
        lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
     end
-    ww = exp.(lw)
-    return ww[:,2:end]
+    return exp.(lw[2:end,:])
 end
 
 """

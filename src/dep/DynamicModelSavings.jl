@@ -151,28 +151,28 @@ function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-6, to
         AZ[:, idx[n]] .= az[n,:]
     end
 
-    return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m,
+    return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m, Λ = Λ,
     idx = idx, zz = zz, ZZ = ZZ, az = az, AZ = AZ, flags = flag, 
     err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
 end
 
 """
-Simulate wage paths given simulated z, a(z) paths
-WITH savings.
+Simulate wage paths given already simulated {z, a(z)} paths 
+(i.e. simulate η shocks) WITH savings.
 """
-function simulateWagesSavings(model, w0, AZ, ZZ; seed = 145)
-    #Random.seed!(seed)
-    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = model
-    N        = size(AZ,2)
+function simulateWagesSavings(sol, seed = 145)
+    Random.seed!(seed)
+    @unpack AZ, ZZ, mod, w0 = sol
+    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = mod
 
-    lw       = zeros(N,T+1)    # log wages
-    lw[:,1] .= log(w0)         # initial wages
+    N        = size(AZ,2)
+    lw       = zeros(N,T+1) # log wages
+    lw[:,1] .= log(w0)      # initial wages
   
     @inbounds for  t=2:T+1, n=1:size(AZ,2)
-       lw[n,t] = lw[n,t-1] + ψ[t]*hp(AZ[t,n])*rand(Normal(0,σ_η)) + 0.5(ψ[t]*hp(AZ[t,n])*σ_η)^2
+       lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) + 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
     end
-    ww = exp.(lw)
-    return ww[2:end]
+    return exp.(lw[2:end,:])
 end
 
 """
