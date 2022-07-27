@@ -1,10 +1,11 @@
 """
 Solve the model WITH savings using a bisection search on θ.
 """
-function solveModelSavings(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
+function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical, bgrid, b0 = m   
-    if (~savings) error("Use solveModelSavings") end 
+    if (~savings) error("Use solveModel") end 
+    if (T!=2) error("set T=2 for model with savings") end 
 
     if procyclical
         nodes  = (zgrid, bgrid)
@@ -29,14 +30,18 @@ function solveModelSavings(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol
 
     #  simulate productivity paths
     ZZ, probs, IZ  = simulateProd(P_z, zgrid, T)
-    YY             = zeros(size(ZZ,2))
     AZ             = zeros(size(ZZ))
+    YY             = zeros(size(ZZ,2))
+    L              = zeros(size(ZZ,2))
+    Λ              = zeros(size(ZZ))
 
     # reduce computation time of expectations by computing values only for unique z_t paths 
     zz    = unique(ZZ, dims=2)'
     iz    = unique(IZ, dims=2)'
     az    = zeros(size(zz))
     yy    = zeros(size(zz))
+    λ     = zeros(size(zz))
+
     flag  = zeros(Int64, size(zz))
     idx   =  Dict{Int64, Vector{Int64}}()
     @inbounds for n = 1:size(zz,1)
@@ -45,7 +50,6 @@ function solveModelSavings(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol
 
     # look for a fixed point in θ
     @inbounds while err1 > tol1 && iter1 < max_iter1
-
         err2   = 10
         iter2  = 1
 
@@ -55,22 +59,25 @@ function solveModelSavings(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol
 
         # look for a fixed point in Y0
         @inbounds while err2 > tol2 && iter2 < max_iter2
-            w0 = ψ[1]*(Y_0 - κ/q(θ_0)) 
-            @inbounds for t = 1:T
-                zt          = unique(zz[:, t])  
-                ψ_t         = ψ[t]
-                @inbounds for n = 1:length(zt)
-                    z = zt[n]
-                    if ε == 1 # can solve analytically
-                        aa = (z/w0 + sqrt((z/w0)^2))/2(1 + ψ_t*σ_η^2)
-                    else # exclude the choice of zero effort
-                        aa = find_zeros(x -> x - max(z*x/w0 -  (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
+            term1 = ψ[1]*(Y_0 - κ/q(θ_0)) 
+            @inbounds for n = 1:size(zz,1)
+                term2 = 0
+                @inbounds for t = 1:T
+                    z     = zz[n,t]
+                    ψ_t   = ψ[t]
+                    if t==1 
+                        aa          = find_zeros(x -> x - max(z*x/term1 - (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
+                        flag[n,t]   = ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) 
+                    elseif t == 2 # exclude the choice of zero effort
+                        aa          = find_zeros(x -> x - max(z*x/term1 + (ψ_t/ε)*(hp(x)*σ_η)^2  - 
+                        ((2/ε)*(exp((ψ_t*hp(x)*σ_η)^2))*(ψ_t*hp(x)*σ_η)^2)/ ( exp((ψ[1]*hp(az[n,t-1])*σ_η)^2) 
+                        + exp((ψ_t*hp(x)*σ_η)^2)), 0)^(ε/(1+ε))+ Inf*(x==0), 0, 10)  
+                        flag[n,t]   = ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) 
                     end
-                    # create a flag matrix -- if neccessary, will need to handle violations
-                    idx1           = findall(isequal(z), zz[:, t])
-                    az[idx1,t]    .= isempty(aa) ? 0 : aa[1]
-                    flag[idx1,t]  .= ((z*aa[1]/w0 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) + isempty(aa) + (w0 < 0)
-                    yy[idx1,t]    .= ((β*(1-s))^(t-1))*az[n,t]*z
+                    term2  += (ψ_t*hp(aa[1])*σ_η)^2
+                    λ[n,t]  = ((β*(1-s))^(t-1))*exp(term2)
+                    az[n,t] = isempty(aa) ? 0 : aa[1]
+                    yy[n,t] = ((β*(1-s))^(t-1))*az[n,t]*z
                 end  
             end
             # Expand
@@ -82,23 +89,22 @@ function solveModelSavings(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-6, tol
             Y_1  = mean(YY)
             err2 = abs(Y_0 - Y_1)
 
-            #= if Y_1 < Y_0 
-                Y_ub  = copy(Y_0)
-            elseif Y_1 > Y_0 || w0 < 0
-                Y_lb  = copy(Y_0)
-            end
-            Y_0  = 0.5(Y_lb + Y_ub) =#
             Y_0  = α*Y_0 + (1-α)*Y_1 
             #println(Y_0)
             iter2 += 1
         end
 
         # Numerical approximation of expected lifetime utility
-        V0 = zeros(size(ZZ,2))
-        v0 = zeros(size(zz,1))
-        b  = zeros(size(az,1),T+1)
-        b[:,1] .= b0
-        w0 = ψ[1]*(Y_0 - κ/q(θ_0)) # wage at t_0
+        l = sum(λ,dims=2)
+        @inbounds for n = 1:size(zz,1)
+            L[idx[n]]    .= l[n]
+        end   
+        Λ       = mean(L)
+        V0      = zeros(size(ZZ,2))
+        v0      = zeros(size(zz,1))
+        b       = zeros(size(az,1),T+1)
+        b[:,1] .= b0           
+        w0      = ψ[1]*(Y_0 - κ/q(θ_0))/Λ 
 
         # compute LHS of IR constraint
         @inbounds for n = 1:size(zz,1)
