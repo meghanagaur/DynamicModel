@@ -1,7 +1,7 @@
 """
 Solve the model WITH savings using a bisection search on θ.
 """
-function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-6, tol2 = 10^-8, noisy = true)
+function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical, bgrid, b0 = m   
     if (~savings) error("Use solveModel") end 
@@ -172,7 +172,7 @@ function simulateWagesSavings(sol, seed = 145)
     @inbounds for  t=2:T+1, n=1:size(AZ,2)
        lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) + 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
     end
-    return exp.(lw[2:end,:])
+    return exp.(lw[:,2:end])
 end
 
 """
@@ -180,7 +180,7 @@ Solve for the (infinite horizon) value of unemployment, given analytically
 initial asset position and a procyclical unemployment benefit
 via value function iteration.
 """
-function unemploymentValueSavings(β, r, ξ, u, zgrid, P_z; N_b = 250, tol = 10^-6, max_iter = 2000)
+function unemploymentValueSavings(β, r, ξ, u, zgrid, P_z; N_b = 250, tol = 10^-7, max_iter = 2000)
     bmin  = -10
     bmax  = 50
     bgrid = LinRange(bmin, bmax, N_b)

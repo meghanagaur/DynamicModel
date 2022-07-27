@@ -269,7 +269,7 @@ function simulateWages(sol; seed = 123)
     @inbounds for t=2:T+1, n=1:size(AZ,2)
        lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
     end
-    return exp.(lw[2:end,:])
+    return exp.(lw[:,2:end])
 end
 
 """
