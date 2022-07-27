@@ -1,7 +1,8 @@
 #= Solve the dynamic EGSS model (first pass). =#
 module DynamicModel # begin module
 
-export model, solveModel, simulateProd, simulateWages
+export model, solveModel, simulateProd, simulateWages, 
+solveModelSavings, simulateWagesSavings
 
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase
