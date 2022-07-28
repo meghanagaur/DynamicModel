@@ -68,17 +68,14 @@ function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, to
                     if t==1 
                         aa          = find_zeros(x -> x - max(z*x/term1 - (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
                         #aa          = find_zeros(x -> x - max(z*x/term1 - (2/ε)*(ψ_t*hp(x)*σ_η)^2 + (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
-
                         flag[n,t]   = ~isempty(aa) ? ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
-
                     elseif t == 2 # exclude the choice of zero effort
                         aa          = find_zeros(x -> x - max(z*x/term1 + (ψ_t/ε)*(hp(x)*σ_η)^2  - 
                                     ((2/ε)*(exp((ψ_t*hp(x)*σ_η)^2))*(ψ_t*hp(x)*σ_η)^2)/ ( exp((ψ[1]*hp(az[n,t-1])*σ_η)^2) 
-                                    + exp((ψ_t*hp(x)*σ_η)^2)), 0)^(ε/(1+ε))+ Inf*(x==0), 0, 10)  
-
+                                    + β*(1-s)*exp((ψ_t*hp(x)*σ_η)^2)), 0)^(ε/(1+ε))+ Inf*(x==0), 0, 10)  
                         flag[n,t]   = ~isempty(aa) ? (z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2  - 
                                     ((2/ε)*(exp((ψ_t*hp(aa[1])*σ_η)^2))*(ψ_t*hp(aa[1])*σ_η)^2)/ ( exp((ψ[1]*hp(az[n,t-1])*σ_η)^2) +
-                                    exp((ψ_t*hp(aa[1])*σ_η)^2)) <0) : isempty(aa) 
+                                    β*(1-s)*exp((ψ_t*hp(aa[1])*σ_η)^2)) <0) : isempty(aa) 
                     end
                     flag[n,t] += (term1 < 0)
                     az[n,t]    = isempty(aa) ? 0 : aa[1]

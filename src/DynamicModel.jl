@@ -268,7 +268,7 @@ function simulateWages(sol; savings = false, seed = 123)
     lw[:,1] .= log(w0)       # w0 (constant)
   
     @inbounds for t=2:T+1, n=1:size(AZ,2)
-        if solveModelSavings
+        if savings
             lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) + 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
          else
             lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) - 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
