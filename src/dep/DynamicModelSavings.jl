@@ -67,6 +67,8 @@ function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, to
                     ψ_t   = ψ[t]
                     if t==1 
                         aa          = find_zeros(x -> x - max(z*x/term1 - (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
+                        #aa          = find_zeros(x -> x - max(z*x/term1 - (2/ε)*(ψ_t*hp(x)*σ_η)^2 + (ψ_t/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 10) 
+
                         flag[n,t]   = ~isempty(aa) ? ((z*aa[1]/term1 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
 
                     elseif t == 2 # exclude the choice of zero effort
@@ -159,25 +161,6 @@ function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, to
     return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m, Λ = Λ,
     idx = idx, zz = zz, ZZ = ZZ, az = az, AZ = AZ, flags = flag, 
     err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
-end
-
-"""
-Simulate wage paths given already simulated {z, a(z)} paths 
-(i.e. simulate η shocks) WITH savings.
-"""
-function simulateWagesSavings(sol, seed = 145)
-    Random.seed!(seed)
-    @unpack AZ, ZZ, mod, w0 = sol
-    @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = mod
-
-    N        = size(AZ,2)
-    lw       = zeros(N,T+1) # log wages
-    lw[:,1] .= log(w0)      # initial wages
-  
-    @inbounds for  t=2:T+1, n=1:size(AZ,2)
-       lw[n,t] = lw[n,t-1] + ψ[t-1]*hp(AZ[t-1,n])*rand(Normal(0,σ_η)) + 0.5(ψ[t-1]*hp(AZ[t-1,n])*σ_η)^2
-    end
-    return exp.(lw[:,2:end])
 end
 
 """
