@@ -2,7 +2,7 @@
 module DynamicModel # begin module
 
 export model, solveModel, simulateProd, simulateWages, 
-solveModelSavings, simulateWagesSavings
+solveModelSavings, simulateWagesSavings, rouwenhorst
 
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase
@@ -163,10 +163,10 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
         @inbounds while err2 > tol2 && iter2 < max_iter2
             w0 = ψ[1]*(Y_0 - κ/q(θ_0)) 
             @inbounds for t = 1:T
-                zt          = unique(zz[:, t])  
+                #zt          = unique(zz[:, t])  
                 ψ_t         = ψ[t]
-                @inbounds for n = 1:length(zt)
-                    z = zt[n]
+                @inbounds for (iz,z) in enumerate(unique(zz[:, t]))   #n = 1:length(zt)
+                    #z = zt[n]
                     if ε == 1 # can solve analytically
                         aa = (z/w0 + sqrt((z/w0)^2))/2(1 + ψ_t*σ_η^2)
                     else # exclude the choice of zero effort
@@ -177,7 +177,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
                     az[idx1,t]    .= isempty(aa) ? 0 : aa[1]
                     flag[idx1,t]  .= ~isempty(aa) ? ((z*aa[1]/w0 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
                     flag[idx1,t] .+= (w0 < 0)
-                    yy[idx1,t]    .= ((β*(1-s))^(t-1))*az[n,t]*z
+                    yy[idx1,t]    .= ((β*(1-s))^(t-1))*az[idx1,t]*z
                 end  
             end
             # Expand
@@ -214,7 +214,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
                 if procyclical == false
                     t3    = (t == T) ? ω*β : ω*β*s 
                 elseif procyclical == true
-                    t3    = (t == T) ? β*dot(P_z[iz[n,t],:],ω) : ω[iz[n,t+1]]*β*s
+                    t3    = (t == T) ? β*dot(P_z[iz[n,t],:],ω) : β*s*dot(P_z[iz[n,t],:],ω) #ω[iz[n,t+1]]*β*s
                 end                    
                 v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^(t-1)     
             end
