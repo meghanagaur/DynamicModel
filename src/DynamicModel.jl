@@ -16,16 +16,16 @@ productivity grid, and return probability of each path.
 """
 function simulateProd(P_z, zgrid, TT; N = 30000, seed = 211, z0 = median(1:length(zgrid)))
     Random.seed!(seed)
-    sim      = rand(TT, N)  # draw uniform numbers in (0,1)
-    zt       = zeros(Int64, TT, N)
-    zt[1,:] .= floor(Int64, z0)
+    sim      = rand(TT, N)           # T X N - draw uniform numbers in (0,1)
+    zt       = zeros(Int64, TT, N)   # T x N - index on productivity grid
+    zt[1,:] .= floor(Int64, z0)      # T x N
     CDF      = cumsum(P_z, dims = 2)
-    probs    = ones(N) # probability of a given sequence
+    probs    = ones(N)               # N x 1 - probability of a given sequence
 
     @inbounds for i = 1:N
         @inbounds for t = 2:TT
             zt[t, i]  = findfirst(x-> x >=  sim[t,i], CDF[zt[t-1,i],:]) 
-            probs[i]  =  P_z[zt[t-1], zt[t]]*probs[i]
+            probs[i]  =  P_z[zt[t-1,i], zt[t,i]]*probs[i]
         end
     end
     return zgrid[zt], probs, zt
@@ -78,13 +78,14 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
     end
 
     if ((T!=2) & (savings == true)) error("set T=2 for model with savings") end 
-    # unemployment benefit value given current state: (z) or (z,b)
+    # unemployment benefit given current state: (z) or (z,b)
     if procyclical == true
         ξ(z) = χ*z
     elseif procyclical == false
         ξ = χ
     end
-    # PV of unemp if you consume unemployment benefit forever
+
+    # PV of unemp if you receive unemployment benefit forever
     bgrid = NaN
     if savings == false
         if procyclical == false
@@ -95,12 +96,12 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
         end
     elseif savings == true
         if procyclical == false
-            ω(b)   = u(ξ + r*b)/(1-β) # b = asset position
+            ω(b)   = u(ξ + r*b)/(1-β) # scalar function; b = initial asset position
         elseif procyclical == true
             println("Solving for value of unemployment...")
             modd   = unemploymentValueSavings(β, r, ξ, u, zgrid, P_z)
             bgrid  = modd.bgrid
-            ω      = modd.v0
+            ω      = modd.v0 # N_z x N_b
         end
     end
     
@@ -131,20 +132,20 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     α     = 0.25            # dampening parameter
     Y_0   = 0               # initalize Y_0 for export
     IR    = 0               # initalize IR for export
-    w0    = 0               # initialize expected wage
-    ω0    = 0               # initilize PV of unemp 
+    w0    = 0               # initialize initial wage constant for export
+    ω0    = 0               # initilize PV of unemp for export
 
     #  simulate productivity paths
-    ZZ, probs, IZ  = simulateProd(P_z, zgrid, T)
-    YY             = zeros(size(ZZ,2))
-    AZ             = zeros(size(ZZ))
+    ZZ, probs, IZ  = simulateProd(P_z, zgrid, T) # T X N
+    YY             = zeros(size(ZZ,2))           # T X N
+    AZ             = zeros(size(ZZ))             # T X N
 
     # reduce computation time of expectations by computing values only for unique z_t paths 
-    zz    = unique(ZZ, dims=2)'
-    iz    = unique(IZ, dims=2)'
-    az    = zeros(size(zz))
-    yy    = zeros(size(zz))
-    flag  = zeros(Int64, size(zz))
+    zz    = unique(ZZ, dims=2)'     # n X t
+    iz    = unique(IZ, dims=2)'     # n x t
+    az    = zeros(size(zz))         # n x t
+    yy    = zeros(size(zz))         # n x t
+    flag  = zeros(Int64, size(zz))  # n x t
     idx   =  Dict{Int64, Vector{Int64}}()
     @inbounds for n = 1:size(zz,1)
         push!(idx, n => findall(isequal(T), vec(sum(ZZ .== zz[n,:], dims=1))) )
@@ -156,7 +157,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
         iter2  = 1
 
         Y_lb = κ/q(θ_0)         # lower search bound
-        Y_ub = 50*κ/q(θ_0)      # upper search bound
+        Y_ub = 100*κ/q(θ_0)     # upper search bound
         Y_0  = (Y_lb + Y_ub)/2  # initial guess for Y
 
         # look for a fixed point in Y0
@@ -176,7 +177,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
                     idx1           = findall(isequal(z), zz[:, t])
                     az[idx1,t]    .= isempty(aa) ? 0 : aa[1]
                     flag[idx1,t]  .= ~isempty(aa) ? ((z*aa[1]/w0 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
-                    flag[idx1,t] .+= (w0 < 0)
+                    flag[idx1,t]  .+= (w0 < 0)
                     yy[idx1,t]    .= ((β*(1-s))^(t-1))*az[idx1,t]*z
                 end  
             end
@@ -216,7 +217,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
                 elseif procyclical == true
                     t3    = (t == T) ? β*dot(P_z[iz[n,t],:],ω) : β*s*dot(P_z[iz[n,t],:],ω) #ω[iz[n,t+1]]*β*s
                 end                    
-                v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^(t-1)     
+                v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^(t-1) # LHS at time t 
             end
             V0[idx[n]] .= v0[n]
         end
@@ -263,9 +264,9 @@ function simulateWages(sol; savings = false, seed = 123)
     @unpack AZ, ZZ, mod, w0 = sol
     @unpack β,s,ψ,T,zgrid,P_z,ρ,σ_ϵ,hp,σ_η  = mod
 
-    N        = size(AZ,2)
+    N        = size(AZ,2)    # number of simulations
     lw       = zeros(N,T+1)  # log wages
-    lw[:,1] .= log(w0)       # w0 (constant)
+    lw[:,1] .= log(w0)       # earnings @ t=0 (constant)
   
     @inbounds for t=2:T+1, n=1:size(AZ,2)
         if savings
@@ -282,7 +283,7 @@ Solve for the (infinite horizon) value of unemployment,
 WITHOUT savings and a procyclical unemployment benefit 
 via value function iteration.
 """
-function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 2000)
+function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 5000)
     N_z    = length(zgrid)
     v0_new = zeros(N_z)
     v0     = u.(ξ.(zgrid))
@@ -299,7 +300,6 @@ function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 2000)
         v0  = copy(v0_new)
         iter +=1
     end
-
     return (v0 = v0, err = err, iter = iter) 
 end
 
