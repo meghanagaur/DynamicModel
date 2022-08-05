@@ -42,7 +42,8 @@ s   = exogenous separation rate
 κ   = vacancy-posting cost
 T   = final period 
 ω   = worker's PV from unemployment 
-χ   = prop. of unemp benefit to z OR unemp benefit, depending on procyclical
+χ   = prop. of unemp benefit to z / actual unemp benefit
+γ   = intercept term of unemp benefit w/ procylical benefit
 σ_η = st dev of η distribution
 μ_z = unconditional mean of log productivity
 z0  = initial log productivity
@@ -56,7 +57,7 @@ savings     == (EGSS with savings)
 procyclical == (EGSS with procyclical unemployment benefit)
 """
 function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.999, σ_ϵ = 0.01, χ = 0.66, z0 = 0.0, μ_z = z0, N_z = 13, savings = false,
+    ρ = 0.999, σ_ϵ = 0.01, γ = 0, χ = 0.66, z0 = 0.0, μ_z = z0, N_z = 17, savings = false,
     procyclical = false, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -80,7 +81,7 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
     if ((T!=2) & (savings == true)) error("set T=2 for model with savings") end 
     # unemployment benefit given current state: (z) or (z,b)
     if procyclical == true
-        ξ(z) = χ*z
+        ξ(z) = γ + χ*z 
     elseif procyclical == false
         ξ    = χ
     end
@@ -107,7 +108,7 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
     
     return (T = T, β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
     σ_ϵ = σ_ϵ, ω = ω, μ_z = μ_z, N_z = N_z, q = q, ψ = ψ, z0 = z0, bgrid = bgrid,
-    h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings, b0 = b0, χ = χ,
+    h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings, b0 = b0, ξ = ξ,
     procyclical = procyclical)
 end
 
@@ -141,11 +142,11 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     AZ             = zeros(size(ZZ))             # T X N
 
     # reduce computation time of expectations by computing values only for unique z_t paths 
-    zz    = unique(ZZ, dims=2)'     # n X t
-    iz    = unique(IZ, dims=2)'     # n x t
-    az    = zeros(size(zz))         # n x t
-    yy    = zeros(size(zz))         # n x t
-    flag  = zeros(Int64, size(zz))  # n x t
+    zz    = unique(ZZ, dims=2)'     # n X T
+    iz    = unique(IZ, dims=2)'     # n x T
+    az    = zeros(size(zz))         # n x T
+    yy    = zeros(size(zz))         # n x T
+    flag  = zeros(Int64, size(zz))  # n x T
     idx   =  Dict{Int64, Vector{Int64}}()
     @inbounds for n = 1:size(zz,1)
         push!(idx, n => findall(isequal(T), vec(sum(ZZ .== zz[n,:], dims=1))) )
