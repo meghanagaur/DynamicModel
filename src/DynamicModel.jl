@@ -57,7 +57,7 @@ savings     == (EGSS with savings)
 procyclical == (EGSS with procyclical unemployment benefit)
 """
 function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.999, σ_ϵ = 0.01, γ = 0, χ = 0.66, z0 = 0.0, μ_z = z0, N_z = 17, savings = false,
+    ρ = 0.999, σ_ϵ = 0.01, γ = 0, χ = 0.66, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
     procyclical = false, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -134,7 +134,6 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     Y_0   = 0               # initalize Y_0 for export
     IR    = 0               # initalize IR for export
     w0    = 0               # initialize initial wage constant for export
-    ω0    = 0               # initilize PV of unemp for export
 
     #  simulate productivity paths
     ZZ, probs, IZ  = simulateProd(P_z, zgrid, T) # T X N
@@ -147,7 +146,9 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     az    = zeros(size(zz))         # n x T
     yy    = zeros(size(zz))         # n x T
     flag  = zeros(Int64, size(zz))  # n x T
-    idx   =  Dict{Int64, Vector{Int64}}()
+    idx   = Dict{Int64, Vector{Int64}}()
+    ω0    = procyclical ? ω[iz[1,1]] : ω # initialize unemployment value at z0
+
     @inbounds for n = 1:size(zz,1)
         push!(idx, n => findall(isequal(T), vec(sum(ZZ .== zz[n,:], dims=1))) )
     end   
@@ -190,12 +191,14 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
             # Numerical approximation of E_0[Y]
             Y_1  = mean(YY)
             err2 = abs(Y_0 - Y_1)
-            #= if Y_1 < Y_0 
+            #= if doing bisection search on Y_0 
+            if Y_1 < Y_0 
                 Y_ub  = copy(Y_0)
             elseif Y_1 > Y_0 || w0 < 0
                 Y_lb  = copy(Y_0)
             end
-            Y_0  = 0.5(Y_lb + Y_ub) =#
+            Y_0  = 0.5(Y_lb + Y_ub) 
+            # Note: delivers ≈ Y_0, but converges more slowly. =#
             Y_0  = α*Y_0 + (1-α)*Y_1 
             #println(Y_0)
             iter2 += 1
@@ -223,12 +226,6 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
             V0[idx[n]] .= v0[n]
         end
 
-        if procyclical == true
-            ω0 = ω[iz[1,1]]
-        elseif procyclical == false
-            ω0 = ω
-        end
-
         # check IR constraint
         IR     = mean(V0)
         err1   = abs(IR - ω0)
@@ -251,7 +248,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     end
 
     return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m,
-    idx = idx, zz = zz, ZZ = ZZ, az = az, AZ = AZ, flags = flag, 
+    idx = idx, zz = zz, ZZ = ZZ, IZ = IZ, iz = iz, az = az, AZ = AZ, flags = flag, 
     err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
 end
 

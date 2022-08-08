@@ -161,7 +161,7 @@ function solveModelSavings(m; max_iter1 = 100, max_iter2 = 500, tol1 = 10^-8, to
 end
 
 """
-Solve for the (infinite horizon) value of unemployment, given analytically
+Solve for the (infinite horizon) value of unemployment, given
 initial asset position and a procyclical unemployment benefit
 via value function iteration.
 """
