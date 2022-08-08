@@ -33,23 +33,23 @@ end
 
 """
 Setup dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
-η ∼ N(0, σ_η^2), log(z_t) = ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
-y = z(a + η).
+η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
+and y_t = z_t(a_t + η_t).
 β   = discount factor
 r   = interest rate
 s   = exogenous separation rate
 ι   = matching elasticity
 κ   = vacancy-posting cost
-T   = final period 
-ω   = worker's PV from unemployment 
+T   = maximal contract duration 
+ω   = worker's PV from unemployment (infinite horizon)
 χ   = prop. of unemp benefit to z / actual unemp benefit
-γ   = intercept term of unemp benefit w/ procylical benefit
+γ   = intercept term of unemp benefit w/ procyclical benefit
 σ_η = st dev of η distribution
-μ_z = unconditional mean of log productivity
-z0  = initial log productivity
-ρ   = persistence of AR1 logz process
-σ_ϵ = variance of error in logz process
-ε   = Frisch elasticity, disutility of effort
+μ_z = unconditional mean of log prod.
+z0  = initial (log) prod.
+ρ   = persistence of log prod. process
+σ_ϵ = variance of error in log prod. process
+ε   = Frisch elasticity: disutility of effort
 ψ   = pass-through parameters
 b0  = initial assets
 
