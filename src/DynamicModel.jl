@@ -11,19 +11,19 @@ include("dep/rouwenhorst.jl")
 include("dep/DynamicModelSavings.jl")
 
 """
-Simulate N {z_t} paths, given transition probs and 
+Simulate N {z_t} paths, given transition prob. matrix P_z and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, TT; N = 30000, seed = 211, z0 = median(1:length(zgrid)))
+function simulateProd(P_z, zgrid, T; N = 30000, seed = 211, z0 = median(1:length(zgrid)))
     Random.seed!(seed)
-    sim      = rand(TT, N)           # T X N - draw uniform numbers in (0,1)
-    zt       = zeros(Int64, TT, N)   # T x N - index on productivity grid
-    zt[1,:] .= floor(Int64, z0)      # T x N
-    CDF      = cumsum(P_z, dims = 2)
+    sim      = rand(T, N)            # T X N - draw uniform numbers in (0,1)
+    zt       = zeros(Int64, T, N)    # T x N - index on productivity grid
+    zt[1,:] .= floor(Int64, z0)      # T x N - set z0 with valid index
+    CDF      = cumsum(P_z, dims = 2) # CDF for transition probs. given initial state
     probs    = ones(N)               # N x 1 - probability of a given sequence
 
     @inbounds for i = 1:N
-        @inbounds for t = 2:TT
+        @inbounds for t = 2:T
             zt[t, i]  = findfirst(x-> x >=  sim[t,i], CDF[zt[t-1,i],:]) 
             probs[i]  =  P_z[zt[t-1,i], zt[t,i]]*probs[i]
         end
