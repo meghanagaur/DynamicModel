@@ -248,7 +248,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     end
 
     return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m,
-    idx = idx, zz = zz, ZZ = ZZ, IZ = IZ, iz = iz, az = az, AZ = AZ, flags = flag, 
+    idx = idx, zz = zz, ZZ = ZZ, iz = iz, IZ = IZ, az = az, AZ = AZ, flags = flag, 
     err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
 end
 
