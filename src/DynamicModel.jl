@@ -56,8 +56,8 @@ b0  = initial assets
 savings     == (EGSS with savings)
 procyclical == (EGSS with procyclical unemployment benefit)
 """
-function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.999, σ_ϵ = 0.01, γ = 0, χ = 0.66, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
+function model(; T = 20, β = 0.95, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
+    ρ = 0.999, σ_ϵ = 0.01, χ = 0.2, γ = 0.69 - χ, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
     procyclical = true, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -249,8 +249,9 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
     end
 
     return (θ = θ_0, Y = Y_0, V = IR, ω0 = ω0, w0 = w0, mod = m,
-    idx = idx, zz = zz, ZZ = ZZ, iz = iz, IZ = IZ, az = az, AZ = AZ, flags = flag, 
-    err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2) 
+    idx = idx, zz = zz, ZZ = ZZ, iz = iz, IZ = IZ, az = az, AZ = AZ, 
+    err1 = err1, err2 = err2, iter1 = iter1, iter2 = iter2, 
+    effort_flag = flag, exit_flag1 = (iter1 >= max_iter1), exit_flag2 = (iter2 >= max_iter2))
 end
 
 """
