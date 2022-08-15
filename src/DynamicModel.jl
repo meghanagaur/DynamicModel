@@ -58,9 +58,10 @@ procyclical == (EGSS with procyclical unemployment benefit)
 """
 function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
     ρ = 0.999, σ_ϵ = 0.01, γ = 0, χ = 0.66, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
-    procyclical = false, b0 = 0)
+    procyclical = true, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
+    f(θ)    = 1/(1 + θ^-ι)^(1/ι)                    # job-filling rate
     u(c)    = log(max(c,eps()))                     # utility from consumption                
     h(a)    = (a^(1 + 1/ε))/(1 + 1/ε)               # disutility from effort  
     u(c, a) = u(c) - h(a)                           # utility function
@@ -106,8 +107,8 @@ function model(; T = 20, β = 0.99, s = 0.2, κ = 0.213, ι = 1.27, ε = 0.5, σ
         end
     end
     
-    return (T = T, β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ,
-    σ_ϵ = σ_ϵ, ω = ω, μ_z = μ_z, N_z = N_z, q = q, ψ = ψ, z0 = z0, bgrid = bgrid,
+    return (T = T, β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, 
+    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, bgrid = bgrid,
     h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings, b0 = b0, ξ = ξ,
     procyclical = procyclical)
 end
@@ -219,14 +220,14 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^
                 if procyclical == false
                     t3    = (t == T) ? ω*β : ω*β*s 
                 elseif procyclical == true
-                    t3    = (t == T) ? β*dot(P_z[iz[n,t],:],ω) : β*s*dot(P_z[iz[n,t],:],ω) #ω[iz[n,t+1]]*β*s
+                    t3    = (t == T) ? β*dot(P_z[iz[n,t],:],ω) : β*s*dot(P_z[iz[n,t],:],ω) #ω[iz[n,t+1]]*β*s <- could directly use next period's draw
                 end                    
                 v0[n] += (log(w0) - t1 - t2 + t3)*(β*(1-s))^(t-1) # LHS at time t 
             end
             V0[idx[n]] .= v0[n]
         end
 
-        # check IR constraint
+        # check IR constraint (must bind)
         IR     = mean(V0)
         err1   = abs(IR - ω0)
 
