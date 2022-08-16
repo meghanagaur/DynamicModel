@@ -1,4 +1,4 @@
-#= Solve the dynamic EGSS model (first pass). =#
+#= Solve the dynamic EGSS model (first pass). Annual calibration =#
 module DynamicModel # begin module
 
 export model, solveModel, simulateProd, simulateWages, unemploymentValue,
@@ -56,8 +56,8 @@ b0  = initial assets
 savings     == (EGSS with savings)
 procyclical == (EGSS with procyclical unemployment benefit)
 """
-function model(; T = 20, β = 0.95, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.999, σ_ϵ = 0.01, χ = 0.2, γ = 0.69 - χ, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
+function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
+    ρ = 0.92, σ_ϵ = 0.0125, χ = 0.1, γ = 0.69 - χ, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
     procyclical = true, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
