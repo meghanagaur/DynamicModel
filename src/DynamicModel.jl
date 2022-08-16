@@ -14,8 +14,10 @@ include("dep/DynamicModelSavings.jl")
 Simulate N {z_t} paths, given transition prob. matrix P_z and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, T; N = 30000, seed = 211, z0 = median(1:length(zgrid)))
-    Random.seed!(seed)
+function simulateProd(P_z, zgrid, T; N = 10000, seed = 211, set_seed = true, z0 = median(1:length(zgrid)))
+    if set_seed == true
+        Random.seed!(seed)
+    end
     sim      = rand(T, N)            # T X N - draw uniform numbers in (0,1)
     zt       = zeros(Int64, T, N)    # T x N - index on productivity grid
     zt[1,:] .= floor(Int64, z0)      # T x N - set z0 with valid index
@@ -35,29 +37,31 @@ end
 Setup dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
 η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
 and y_t = z_t(a_t + η_t).
-β   = discount factor
-r   = interest rate
-s   = exogenous separation rate
-ι   = matching elasticity
-κ   = vacancy-posting cost
-T   = maximal contract duration 
-ω   = worker's PV from unemployment (infinite horizon)
-χ   = prop. of unemp benefit to z / actual unemp benefit
-γ   = intercept term of unemp benefit w/ procyclical benefit
-σ_η = st dev of η distribution
-μ_z = unconditional mean of log prod.
-z0  = initial (log) prod.
-ρ   = persistence of log prod. process
-σ_ϵ = variance of error in log prod. process
-ε   = Frisch elasticity: disutility of effort
-ψ   = pass-through parameters
-b0  = initial assets
+β    = discount factor
+r    = interest rate
+s    = exogenous separation rate
+ι    = matching elasticity
+κ    = vacancy-posting cost
+T    = maximal contract duration 
+ω    = worker's PV from unemployment (infinite horizon)
+χ    = prop. of unemp benefit to z / actual unemp benefit
+γ    = intercept for unemp benefit w/ procyclical benefit
+z_ss = steady state productivity
+σ_η  = st dev of η distribution
+μ_z  = unconditional mean of log prod.
+z0   = initial (log) prod.
+ρ    = persistence of log prod. process
+σ_ϵ  = variance of error in log prod. process
+ε    = Frisch elasticity: disutility of effort
+ψ    = pass-through parameters
+b0   = initial assets
 
 savings     == (EGSS with savings)
 procyclical == (EGSS with procyclical unemployment benefit)
 """
-function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, 
-    ρ = 0.92, σ_ϵ = 0.0125, χ = 0.1, γ = 0.69 - χ, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
+# ι = 1.27
+function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.01, z_ss = 1,
+    ρ = 0.98, σ_ϵ = 0.002, χ = 0.3, γ = 0.685, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
     procyclical = true, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -82,7 +86,7 @@ function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ
     if ((T!=2) & (savings == true)) error("set T=2 for model with savings") end 
     # unemployment benefit given current state: (z) or (z,b)
     if procyclical == true
-        ξ(z) = γ + χ*z 
+        ξ(z) = γ + χ*(z - z_ss) 
     elseif procyclical == false
         ξ    = χ
     end
@@ -116,7 +120,7 @@ end
 """
 Solve the model WITHOUT savings using a bisection search on θ.
 """
-function solveModel(m; max_iter1 = 50, max_iter2 = 500, tol1 = 10^-8, tol2 = 10^-8, noisy = true)
+function solveModel(m; max_iter1 = 50, max_iter2 = 250, tol1 = 10^-8, tol2 = 10^-6, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical = m   
     if (savings) error("Use solveModelSavings") end 
