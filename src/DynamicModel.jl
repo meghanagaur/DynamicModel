@@ -1,4 +1,5 @@
-#= Solve the dynamic EGSS model (first pass). Annual calibration =#
+#= Solve the dynamic EGSS model (first pass). Annual calibration 
+Package published at https://github.com/meghanagaur/DynamicModel. =#
 module DynamicModel # begin module
 
 export model, solveModel, simulateProd, simulateWages, unemploymentValue,
@@ -59,14 +60,13 @@ b0   = initial assets
 savings     == (EGSS with savings)
 procyclical == (EGSS with procyclical unemployment benefit)
 """
-# ι = 1.27
-function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.01, z_ss = 1,
-    ρ = 0.98, σ_ϵ = 0.002, χ = 0.3, γ = 0.685, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
+function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ_η = 0.05, z_ss = 1,
+    ρ = 0.92, σ_ϵ = 0.01, χ = 0.1, γ = 0.63, z0 = 0.0, μ_z = z0, N_z = 11, savings = false,
     procyclical = true, b0 = 0)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     f(θ)    = 1/(1 + θ^-ι)^(1/ι)                    # job-filling rate
-    u(c)    = log(max(c,eps()))                     # utility from consumption                
+    u(c)    = log(max(c, eps()))                    # utility from consumption                
     h(a)    = (a^(1 + 1/ε))/(1 + 1/ε)               # disutility from effort  
     u(c, a) = u(c) - h(a)                           # utility function
     hp(a)   = a^(1/ε)                               # h'(a)
@@ -88,7 +88,7 @@ function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ
     if procyclical == true
         ξ(z) = γ + χ*(z - z_ss) 
     elseif procyclical == false
-        ξ    = χ
+        ξ    = γ
     end
 
     # PV of unemp if you receive unemployment benefit forever
@@ -120,7 +120,7 @@ end
 """
 Solve the model WITHOUT savings using a bisection search on θ.
 """
-function solveModel(m; max_iter1 = 50, max_iter2 = 250, tol1 = 10^-8, tol2 = 10^-6, noisy = true)
+function solveModel(m; max_iter1 = 100, max_iter2 = 100, tol1 = 10^-7, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical = m   
     if (savings) error("Use solveModelSavings") end 
@@ -133,19 +133,19 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 250, tol1 = 10^-8, tol2 = 10^
 
     # Initialize default values and search parameters
     θ_lb  = 0.0             # lower search bound
-    θ_ub  = 2.0             # upper search bound
+    θ_ub  = 10.0            # upper search bound
     θ_0   = (θ_lb + θ_ub)/2 # initial guess for θ
     α     = 0.25            # dampening parameter
     Y_0   = 0               # initalize Y_0 for export
     IR    = 0               # initalize IR for export
     w0    = 0               # initialize initial wage constant for export
 
-    #  simulate productivity paths
+    #  simulate productivity paths for computing expectations
     ZZ, probs, IZ  = simulateProd(P_z, zgrid, T) # T X N
     YY             = zeros(size(ZZ,2))           # T X N
     AZ             = zeros(size(ZZ))             # T X N
 
-    # reduce computation time of expectations by computing values only for unique z_t paths 
+    # reduce computation time by considering only for unique z_t paths 
     zz    = unique(ZZ, dims=2)'     # n X T
     iz    = unique(IZ, dims=2)'     # n x T
     az    = zeros(size(zz))         # n x T
@@ -204,6 +204,7 @@ function solveModel(m; max_iter1 = 50, max_iter2 = 250, tol1 = 10^-8, tol2 = 10^
             end
             Y_0  = 0.5(Y_lb + Y_ub) 
             # Note: delivers ≈ Y_0, but converges more slowly. =#
+            α = iter2 > 50 ? 0.75 : α
             Y_0  = α*Y_0 + (1-α)*Y_1 
             #println(Y_0)
             iter2 += 1
