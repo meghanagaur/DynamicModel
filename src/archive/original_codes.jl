@@ -1,7 +1,7 @@
 """
 Solve the model WITHOUT savings using a bisection search on θ.
 """
-function solveModel(m; max_iter1 = 100, max_iter2 = 100, tol1 = 10^-7, tol2 = 10^-8, noisy = true)
+function solveModel2(m; max_iter1 = 25, max_iter2 = 100, tol1 = 10^-7, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical = m   
     if (savings) error("Use solveModelSavings") end 
@@ -22,7 +22,7 @@ function solveModel(m; max_iter1 = 100, max_iter2 = 100, tol1 = 10^-7, tol2 = 10
     w0    = 0               # initialize initial wage constant for export
 
     #  simulate productivity paths for computing expectations
-    ZZ, probs, IZ  = simulateProd(P_z, zgrid, T) # T X N
+    ZZ, probs, IZ  = simulateProd2(P_z, zgrid, T) # T X N
     YY             = zeros(size(ZZ,2))           # T X N
     AZ             = zeros(size(ZZ))             # T X N
 
@@ -144,7 +144,7 @@ end
 Simulate N {z_t} paths, given transition prob. matrix P_z and 
 productivity grid, and return probability of each path.
 """
-function simulateProd(P_z, zgrid, T; N = 10000, seed = 211, set_seed = true, z0 = median(1:length(zgrid)))
+function simulateProd2(P_z, zgrid, T; N = 10000, seed = 211, set_seed = true, z0 = median(1:length(zgrid)))
     if set_seed == true
         Random.seed!(seed)
     end

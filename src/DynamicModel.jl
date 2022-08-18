@@ -113,9 +113,9 @@ function model(; T = 20, β = 0.96, s = 0.1, κ = 0.213, ι = 1.27, ε = 0.5, σ
     end
     
     return (T = T, β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, 
-    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, bgrid = bgrid,
-    h = h, u = u, hp = hp, zgrid = zgrid, P_z = P_z, savings = savings, b0 = b0, ξ = ξ,
-    procyclical = procyclical)
+    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, h = h, u = u, hp = hp, 
+    zgrid = zgrid, P_z = P_z, savings = savings, bgrid = bgrid, b0 = b0, ξ = ξ, χ = χ,
+    γ = γ, procyclical = procyclical)
 end
 
 """
@@ -140,7 +140,7 @@ end
 """
 Solve the model WITHOUT savings using a bisection search on θ.
 """
-function solveModel(m; N_sim = 20000, max_iter1 = 100, max_iter2 = 100, tol1 = 10^-7, tol2 = 10^-8, noisy = true)
+function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 10^-7, tol2 = 10^-8, noisy = true)
 
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical, N_z = m   
     if (savings) error("Use solveModelSavings") end 
