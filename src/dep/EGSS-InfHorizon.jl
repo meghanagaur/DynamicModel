@@ -1,9 +1,6 @@
 #= Solve the infinite horizon dynamic EGSS model (first pass). 
 Quarterly calibration, no savings. =#
 
-using DataStructures, Distributions, ForwardDiff, Interpolations,
- LinearAlgebra, Parameters, Random, Roots, StatsBase
-
 """
 Setup dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
 η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
