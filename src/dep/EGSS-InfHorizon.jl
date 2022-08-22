@@ -4,8 +4,6 @@ Quarterly calibration, no savings. =#
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase
 
-include("dep/rouwenhorst.jl")
-
 """
 Setup dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
 η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
@@ -202,21 +200,3 @@ function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 5000)
     end
     return (v0 = v0, err = err, iter = iter) 
 end
-
-
-
-#=check to make sure we fall within bounds for all χ
-zgrid = model().zgrid
-
-# min χ
-mod1 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.0))
-mod2 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.0))
-
-# max χ
-mod3 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.5))
-mod4 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.5))
-
-# median χ
-mod5 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.3))
-mod6 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.3))
-=#

@@ -4,13 +4,25 @@ xguidefontsize =13, yguidefontsize=13, xtickfontsize=8, ytickfontsize=8,
 linewidth = 2, gridstyle = :dash, gridlinewidth = 1.2, margin = 10* Plots.px,legendfontsize = 9)
 
 include("dep/rouwenhorst.jl")
-include("InfHorizonDynamicModel.jl")
+include("dep/InfHorizonDynamicModel.jl")
 
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase
 
- pro = false
- dir = pro ?  "plots/no-savings/procyclical-b/" : "plots/no-savings/constant-b/" 
+# check to make sure we fall within bounds for all χ
+zgrid = model().zgrid
+
+# min χ
+mod1 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.0))
+mod2 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.0))
+
+# max χ
+mod3 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.5))
+mod4 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.5))
+
+# median χ
+mod5 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.3))
+mod6 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.3))
 
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
 function partial(θ_0; m =model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
