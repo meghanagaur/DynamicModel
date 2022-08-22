@@ -124,7 +124,7 @@ Solve for the optimal effort a(z,t), given Y_0, θ_0, zt, and t.
 function optA(z, t, modd, Y, θ)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     ψ_t = ψ[t]
-    w0  = ψ[1]*(Y - κ/q(θ))    # time-0 earnings (constant)
+    w0  = ψ[1]*(Y - κ/q(θ)) # time-0 earnings (constant)
     if ε == 1 # can solve analytically
         aa = (z/w0 + sqrt((z/w0)^2))/2(1 + ψ_t*σ_η^2)
     else # exclude the choice of zero effort
@@ -141,24 +141,23 @@ end
 Solve the model WITHOUT savings using a bisection search on θ.
 """
 function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 10^-7, tol2 = 10^-8, noisy = true)
-
     @unpack T, β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, savings, procyclical, N_z = m   
     if (savings) error("Use solveModelSavings") end 
 
-    # set tolerance parameters for inner and outer loops
+    # set tolerance parameters for outermost loops
     err1  = 10
-    err2  = 10
     iter1 = 1
-    iter2 = 1
 
     # Initialize default values and search parameters
-    θ_lb  = 0.0             # lower search bound
-    θ_ub  = 10.0            # upper search bound
-    θ_0   = (θ_lb + θ_ub)/2 # initial guess for θ
-    α     = 0.25            # dampening parameter
-    Y_0   = 0               # initalize Y_0 for export
-    IR    = 0               # initalize IR for export
-    w0    = 0               # initialize initial wage constant for export
+    z0_idx = findfirst(isequal(z0), log.(zgrid)) # index of z0 on zgrid
+    ω_0    = procyclical ? ω[z0_idx] : ω         # unemployment value at z0
+    θ_lb   = 0.0             # lower search bound
+    θ_ub   = 10.0            # upper search bound
+    θ_0    = (θ_lb + θ_ub)/2 # initial guess for θ
+    α      = 0.25            # dampening parameter
+    Y_0    = 0               # initalize Y_0 for export
+    IR     = 0               # initalize IR for export
+    w0     = 0               # initialize initial wage constant for export
 
     #  simulate productivity paths for computing expectations
     ZZ, probs, IZ  = simulateProd(P_z, zgrid, T; N = N_sim) # N x T
@@ -167,7 +166,6 @@ function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 1
     flag           = zeros(N_z, T)    # N_z x T                          
     AA             = zeros(N_sim, T)  # N x T                   
     YY             = zeros(N_sim, T)  # N x T                   
-    @views ω0      = procyclical ? ω[IZ[1,1]] : ω # unemployment value at z0
 
     # Look for a fixed point in θ_0
     @inbounds while err1 > tol1 && iter1 < max_iter1
@@ -185,8 +183,8 @@ function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 1
                 end 
             end
             @views @inbounds for t=1:T
-                AA[:,t] .= az[IZ[:,t],t] 
-                YY[:,t] .= yz[IZ[:,t],t] 
+                AA[:,t] .= az[IZ[:,t], t] 
+                YY[:,t] .= yz[IZ[:,t], t] 
             end
             Y    = mapreduce(t -> YY[:,t] *(β*(1-s))^(t-1), +, 1:T)  # compute PV of Y_i
             Y_1  = mean(Y)         # Numerical approximation of E_0[Y]
@@ -200,8 +198,8 @@ function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 1
             end
             Y_0  = 0.5(Y_lb + Y_ub) 
             # Note: delivers ≈ Y_0, but converges more slowly. =#
-
-            α      = iter2 > 50 ? 0.75 : α
+            # increase dampening parameter if not converging
+            α      = iter2 > 50 ? 0.75 : α 
             Y_0    = max(α*Y_0 + (1-α)*Y_1, κ/q(θ_0))
             iter2 += 1
             #println(Y_0)
@@ -227,11 +225,11 @@ function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 1
 
         # check IR constraint (must bind)
         IR     = mean(V0)
-        err1   = abs(IR - ω0)
+        err1   = abs(IR - ω_0)
 
-        if IR > ω0
+        if IR > ω_0
             θ_lb  = copy(θ_0)
-        elseif IR < ω0
+        elseif IR < ω_0
             θ_ub  = copy(θ_0)
         end
         if noisy 
@@ -249,6 +247,7 @@ function solveModel(m; N_sim = 10000, max_iter1 = 100, max_iter2 = 100, tol1 = 1
 end
 
 """
+NEEDS UPDATING.
 Simulate wage paths given already simulated {z, a(z)} paths 
 (i.e. simulate η shocks) WITH or WITHOUT savings.
 """
