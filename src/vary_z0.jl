@@ -71,6 +71,12 @@ ww  = slope(W, dz)
 yy  = slope(Y, dz)
 jj  = slope(J, dz)
 
+p1 = plot(z0grid[1:end-1], tt, ylabel=L"d \theta_0 / d  z_0", xlabel=L" z_0")
+p2 = plot(z0grid[1:end-1], ww, ylabel=L"d  W_0 d /  z_0", xlabel=L" z_0")
+p3 = plot(z0grid[1:end-1], yy, ylabel=L"d  Y_0 d / z_0",xlabel=L" z_0")
+p4 = plot(z0grid[1:end-1], jj, ylabel=L"d J_0 d / z_0",xlabel=L" z_0")
+plot(p1, p2, p3, p4, layout = (2, 2), legend=:false)
+
 # double-check slopes
 qq(x) =  -(x^(-1+ι))*(1+x^ι)^(-1 -1/ι) # q'(θ)
 xx    = theta[1:end-1]

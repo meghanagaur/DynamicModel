@@ -86,7 +86,7 @@ end
 """
 Solve the model WITHOUT savings using a bisection search on θ.
 """
-function solveModel(modd; max_iter1 = 30, max_iter2 = 1000, max_iter3 = 1000,
+function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, θ_lb_0 =  0.0, θ_ub_0 = 15.0)
 
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0 = modd  
