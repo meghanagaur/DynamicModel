@@ -6,10 +6,10 @@ using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase, DynamicModel
 
 # Define the z0grid and χ
-χ       = 0.1
+χ       = 0
 zmin    = 0.97
 zmax    = 1.03
-dz      = 0.01 #0.001
+dz      = 0.001
 z0grid  = collect(zmin:dz:zmax)
 lz0grid = log.(z0grid)
 dlz     = lz0grid[2:end] - lz0grid[1:end-1]
@@ -154,9 +154,32 @@ JJ_B = slope(J,dz)     # Bonus
 JJ_H = slope(JJ,dz)    # Hall
 ZZ   = slope(exp_z,dz) 
 
-plot(z0grid[1:end-1], JJ_H, label="Hall: Fixed w and fixed a", linecolor=:cyan, linewidth=3,legend=:bottomright, ylabel=L"dJ_0/ dz_0")
+# Check to compute ZZ analytically
+exp_zz = zeros(length(z0grid)) 
+@inbounds for (iz,z0) in enumerate(z0grid)
+    @unpack zgrid, P_z, N_z = modd[iz].mod
+    z0_idx  = findfirst(isequal(z0), zgrid)  # index of z0 on zgrid
+    
+    # initialize guesses
+    v0     = zgrid./(1-β*(1-s))
+    v0_new = zeros(N_z)
+    iter   = 1
+    err    = 10
+    
+    # solve via simple value function iteration
+    @inbounds while err > 10^-8 && iter < 500
+        v0_new = zgrid./z0 + β*(1-s)*P_z*v0
+        err    = maximum(abs.(v0_new - v0))
+        v0     = copy(v0_new)
+        iter +=1
+    end
+    exp_zz[iz]   = v0[z0_idx]
+end
+
+plot(z0grid[1:end-1], JJ_H, label="Hall: Fixed w and fixed a", linecolor=:cyan, linewidth=3,legend=:outerbottom, ylabel=L"dJ_0/ dz_0")
 plot!(z0grid[1:end-1], JJ_B, label="Bonus economy: Variable w and variable a", linecolor=:black)
-plot!(z0grid[1:end-1], a_opt*ZZ, label="")
+plot!(z0grid[1:end-1], a_opt*ZZ, label="Check 1")
+plot!(z0grid, a_opt*exp_zz, label="Check 2")
 xlabel!(L"z_0")
 
 # try approximating total derivative of value function with the partial derivative
@@ -182,34 +205,14 @@ exp_az = zeros(length(z0grid))
     exp_az[iz]   = v0[z0_idx]
 end
 
-p1= plot(z0grid[1:end-1], exp_az[1:end-1], label="Analytical Bonus w/ EVT", ylabel=L"dJ_0/ dz_0",linecolor=:red,linewidth=:3)
-plot!(p1,z0grid[1:end-1], JJ_B,label="Numerical Bonus",linecolor=:black)
-plot!(p1,z0grid[1:end-1], JJ_H,label="Hall Numerical", linecolor=:cyan)
+# try central finite differences for this plot
+JJ_B= (JJ[3:end] - JJ[1:end-2])/2dz
+plot(z0grid, exp_az, label="Analytical Bonus w/ EVT", ylabel=L"dJ_0/ dz_0",linecolor=:red)
+plot!(z0grid,  a_opt*exp_zz,label="Hall Numerical", linecolor=:cyan)
+plot!(z0grid[2:end-1], JJ_B,label = "Numerical Bonus",linecolor=:black, legend=:topleft)
 
 
-#= Check to compute ZZ analytically
-exp_zz = zeros(length(z0grid)) 
-@inbounds for (iz,z0) in enumerate(z0grid)
-    @unpack zgrid, P_z, N_z = modd[iz].mod
-    z0_idx  = findfirst(isequal(z0), zgrid)  # index of z0 on zgrid
-    
-    # initialize guesses
-    v0     = zgrid./(1-β*(1-s))
-    v0_new = zeros(N_z)
-    iter   = 1
-    err    = 10
-    
-    # solve via simple value function iteration
-    @inbounds while err > 10^-8 && iter < 500
-        v0_new = zgrid./z0 + β*(1-s)*P_z*v0
-        err    = maximum(abs.(v0_new - v0))
-        v0     = copy(v0_new)
-        iter +=1
-    end
-    exp_zz[iz]   = v0[z0_idx]
-end
-
-#### also try with a continuous process (take expectations first but shouldn't matter)
+#= try with a continuous process (take expectations first but shouldn't matter)
 TT      = 20000
 N_sim   = 10000
 exp_zz2 = zeros(length(z0grid))

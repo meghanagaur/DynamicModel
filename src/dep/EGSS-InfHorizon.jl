@@ -87,14 +87,14 @@ end
 Solve the model WITHOUT savings using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 30, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true)
+    tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, θ_lb_0 =  0.0, θ_ub_0 = 15.0)
 
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0 = modd  
 
     # set tolerance parameters for outermost loop
     err1  = 10
     iter1 = 1
-    # initialize tolerance parameters for inner loop (for export)
+    # initialize tolerance parameters for inner loops (for export)
     err2  = 10
     iter2 = 1
     err3  = 10
@@ -103,8 +103,8 @@ function solveModel(modd; max_iter1 = 30, max_iter2 = 1000, max_iter3 = 1000,
     # Initialize default values and search parameters
     z0_idx = findfirst(isequal(z0), log.(zgrid))  # index of z0 on zgrid
     ω_0    = procyclical ? ω[z0_idx] : ω          # unemployment value at z0
-    θ_lb   = 0.0             # lower search bound for θ
-    θ_ub   = 15.0            # upper search bound for θ
+    θ_lb   = θ_lb_0          # lower search bound for θ
+    θ_ub   = θ_ub_0          # upper search bound for θ
     θ_0    = (θ_lb + θ_ub)/2 # initial guess for θ
     α      = 0               # dampening parameter
     Y_0    = 0               # initalize Y_0 for export
@@ -167,6 +167,12 @@ function solveModel(modd; max_iter1 = 30, max_iter2 = 1000, max_iter3 = 1000,
         iter1 += 1
         if noisy 
             println(θ_0)
+        end
+
+        # stop if we hit the bounds on θ
+        if (abs(θ_0 - θ_lb_0) < 10^-6) || (abs(θ_0 - θ_ub_0) < 10^-6 )
+            iter1 = max_iter1
+            break
         end
     end
 
