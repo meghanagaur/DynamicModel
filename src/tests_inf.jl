@@ -1,13 +1,9 @@
-
 using LaTeXStrings, Plots; gr(border = :box, grid = true, minorgrid = true, gridalpha=0.2,
 xguidefontsize =13, yguidefontsize=13, xtickfontsize=8, ytickfontsize=8,
 linewidth = 2, gridstyle = :dash, gridlinewidth = 1.2, margin = 10* Plots.px,legendfontsize = 9)
 
-include("dep/rouwenhorst.jl")
-include("dep/InfHorizonDynamicModel.jl")
-
 using DataStructures, Distributions, ForwardDiff, Interpolations,
- LinearAlgebra, Parameters, Random, Roots, StatsBase
+ LinearAlgebra, Parameters, Random, Roots, StatsBase, DynamicModel
 
 # check to make sure we fall within bounds for all χ
 zgrid = model().zgrid
@@ -94,12 +90,13 @@ end
 
 Y     = [modd[i].Y for i = 1:length(tgrid)]
 V     = [modd[i].V for i = 1:length(tgrid)]
-ω0    = [modd[i].ω0 for i = 1:length(tgrid)]
-w0    = [modd[i].w0 for i = 1:length(tgrid)]
+ω0    = [modd[i].ω_0 for i = 1:length(tgrid)]
+w0    = [modd[i].w_0 for i = 1:length(tgrid)]
 
 p1 = plot(tgrid, Y , ylabel=L"Y_0", xlabel=L"\theta_0", label="")
 
-qq(x) = 1/(1 + x^ 1.25)^(1/1.25)
+@unpack ι = model()
+qq(x) = 1/(1 + x^ ι)^(1/ι)
 p2 = plot(qq,minimum(tgrid),maximum(tgrid), ylabel=L"q(\theta_0)",xlabel=L"\theta_0",label="")
 
 p3 = plot(tgrid, V , label=L"V", legend=true)
