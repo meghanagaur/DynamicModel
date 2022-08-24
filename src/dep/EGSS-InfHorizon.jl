@@ -63,20 +63,23 @@ function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.
 end
 
 """
-Solve for the optimal effort a(z | z_0), given Y_0, θ_0, and z.
+Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 """
-function optA(z, modd, Y, θ)
+function optA(z, modd, w_0)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
-    w_0  = ψ*(Y - κ/q(θ)) # time-0 earnings (constant)
-    if ε == 1 # can solve analytically
-        aa = (z/w_0 + sqrt((z/w_0)^2))/2(1 + ψ*σ_η^2)
-    else # exclude the choice of zero effort
+    if ε == 1 # can solve analytically for positive root
+        aa = (z/w_0)/(1 + ψ*σ_η^2)
+    else # solve for the positive root 
         aa = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 20) 
     end
-    a      = ~isempty(aa) ? aa[1] : 0
+    if ~isempty(aa)
+        a      = ~isempty(aa) ? aa[1] : 0
+        a_flag = max( ((z*aa[1]/w_0 + (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
+    elseif isempty(aa)
+        a       = 0
+        a_flag  = 1
+    end
     y      = a*z # Expectation of y_t over η_t (given z_t)
-    a_flag = ~isempty(aa) ? ((z*aa[1]/w_0 + (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
-    a_flag += (w_0 < 0)
     return a, y, a_flag
 end
 
@@ -115,28 +118,36 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
 
     # Look for a fixed point in θ_0
     @inbounds while err1 > tol1 && iter1 < max_iter1  
+
+        if noisy 
+            println(θ_0)
+        end
+
         # Look for a fixed point in Y(z | z_0), ∀ z
         err2   = 10
         iter2  = 1      
         Y_0    = ones(N_z)*(30*κ/q(θ_0))   # initial guess for Y(z | z_0)
+        
         @inbounds while err2 > tol2 && iter2 < max_iter2   
+            w_0  = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # constant for wage difference equation
             # Solve for optimal effort a(z | z_0)
             @inbounds for (iz,z) in enumerate(zgrid)
-                az[iz], yz[iz], a_flag[iz] = optA(z, modd, Y_0[z0_idx], θ_0)
+                az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0)
             end
             Y_1    = yz + β*(1-s)*P_z*Y_0    
             err2   = maximum(abs.(Y_0 - Y_1))  # Error       
             #α     = iter2 > 100 ? 0.75 : α 
-            Y_0    = α*Y_0 + (1-α)*Y_1
-            iter2 += 1
+            if (err2 > tol2) && (iter2 < max_iter2) 
+                Y_0    = α*Y_0 + (1-α)*Y_1 
+                iter2 += 1
+            end
             #println(Y_0[z0_idx])
         end
 
         # Solve recursively for the PV utility from the contract
-        w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) 
-        err3   = 10
-        iter3  = 1  
-        W_0    = ω # initial guess
+        err3  = 10
+        iter3 = 1  
+        W_0   = ω # initial guess
         flow  = -(1/2ψ)*(ψ*hp.(az)σ_η).^2 - h.(az) + β*s*P_z*ω
         @inbounds while err3 > tol3 && iter3 < max_iter3
             W_1  = flow + β*(1-s)*P_z*W_0
@@ -156,22 +167,22 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         elseif U < ω_0
             θ_ub  = copy(θ_0)
         end
-        θ_0    = (θ_lb + θ_ub)/2
-        iter1 += 1
-        if noisy 
-            println(θ_0)
+
+        if (err1 > tol1) && (iter1 < max_iter1) 
+            θ_0    = (θ_lb + θ_ub)/2
+            iter1 += 1
         end
 
-        # stop if we hit the bounds on θ
-        if (abs(θ_0 - θ_lb_0) < 10^-6) || (abs(θ_0 - θ_ub_0) < 10^-6 )
+        # stop if we get stuck near the bounds on θ
+        if (abs(θ_0 - θ_lb_0) < 10^-8) || (abs(θ_0 - θ_ub_0) < 10^-8 )
             iter1 = max_iter1
             break
         end
     end
 
     return (θ = θ_0, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd,
-    az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3,
-    effort_flag = a_flag, exit_flag1 = (iter1 >= max_iter1), exit_flag2 = (iter2 >= max_iter2), exit_flag3 = (iter3 >= max_iter3))
+    az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 < 0),
+    effort_flag = maximum(a_flag), exit_flag1 = (iter1 >= max_iter1), exit_flag2 = (iter2 >= max_iter2), exit_flag3 = (iter3 >= max_iter3))
 end
 
 """
@@ -187,12 +198,10 @@ function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 5000)
 
     # solve via simple value function iteration
     @inbounds while err > tol && iter < max_iter
-        @inbounds for (iz,z) in enumerate(zgrid)
-            v0_new[iz] = u(ξ.(z)) + β*dot(P_z[iz,:],v0)
-        end
-        err = maximum(abs.(v0_new - v0))
-        v0  = copy(v0_new)
-        iter +=1
+        v0_new = u.(ξ.(zgrid)) + β*P_z*v0
+        err    = maximum(abs.(v0_new - v0))
+        v0     = copy(v0_new)
+        iter   +=1
     end
     return (v0 = v0, err = err, iter = iter) 
 end

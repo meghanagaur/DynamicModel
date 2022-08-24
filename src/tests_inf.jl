@@ -20,6 +20,12 @@ mod4 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.5))
 mod5 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.3))
 mod6 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.3))
 
+# median z_0
+mod7 = solveModel(model(z0 = log(median(zgrid)), χ = 0.0))
+mod8 = solveModel(model(z0 = log(median(zgrid)), χ = 0.3))
+mod9 = solveModel(model(z0 = log(median(zgrid)), χ = 0.5))
+
+
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
 function partial(θ_0; m =model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
@@ -82,7 +88,7 @@ end
 
 #= plot to see how present value for worker, output, and w0 change with θ
 helpful for checking how we should update theta for convergence =#
-tgrid = collect(0.5:0.1:1.5)
+tgrid = collect(0.0:0.5:10)
 modd  = OrderedDict{Int64, Any}()
 for i = 1:length(tgrid)
     modd[i] = partial.(tgrid[i])

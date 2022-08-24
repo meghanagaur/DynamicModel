@@ -97,6 +97,7 @@ function optA(z, t, modd, Y, θ)
     a    = ~isempty(aa) ? aa[1] : 0
     y    = a*z # Expectation of y_t over η_t (given z_t)
     flag = ~isempty(aa) ? ((z*aa[1]/w0 + (ψ_t/ε)*(hp(aa[1])*σ_η)^2) < 0) : isempty(aa) 
+    flag += length(aa) > 1
     flag += (w0 < 0)
     return a, y, flag
 end

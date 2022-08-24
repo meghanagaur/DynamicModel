@@ -6,7 +6,7 @@ using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase, DynamicModel
 
 # Define the z0grid and χ
-χ       = 0
+χ       = 0.3
 zmin    = 0.97
 zmax    = 1.03
 dz      = 0.001
@@ -212,7 +212,7 @@ exp_az = zeros(length(z0grid))
 end
 
 # try central finite differences for this plot
-JJ_B= (JJ[3:end] - JJ[1:end-2])/2dz
+JJ_B = (J[3:end] - J[1:end-2])/2dz # re-compute Bonus slopes
 plot(z0grid, exp_az, label="Analytical Bonus w/ EVT", ylabel=L"dJ_0/ dz_0",linecolor=:red)
 plot!(z0grid,  a_opt*exp_zz,label="Hall Numerical", linecolor=:cyan)
 plot!(z0grid[2:end-1], JJ_B,label = "Numerical Bonus",linecolor=:black, legend=:topleft)
