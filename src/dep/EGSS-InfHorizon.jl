@@ -2,7 +2,7 @@
 Quarterly calibration, no savings. =#
 
 """
-Setup dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
+Set up the dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
 η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
 and y_t = z_t(a_t + η_t).
 β    = discount factor
@@ -10,7 +10,6 @@ r    = interest rate
 s    = exogenous separation rate
 ι    = matching elasticity
 κ    = vacancy-posting cost
-T    = maximal contract duration 
 ω    = worker's PV from unemployment (infinite horizon)
 χ    = prop. of unemp benefit to z / actual unemp benefit
 γ    = intercept for unemp benefit w/ procyclical benefit
@@ -19,15 +18,13 @@ z_ss = steady state productivity
 μ_z  = unconditional mean of log prod.
 z0   = initial (log) prod.
 ρ    = persistence of log prod. process
-σ_ϵ  = variance of error in log prod. process
+σ_ϵ  = variance of innovation in log prod. process
 ε    = Frisch elasticity: disutility of effort
 ψ    = pass-through parameters
-b0   = initial assets
 
-savings     == (EGSS with savings)
-procyclical == (EGSS with procyclical unemployment benefit)
+procyclical == (procyclical unemployment benefit)
 """
-function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.05, z_ss = 1,
+function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.978, σ_ϵ = 0.007, χ = 0.1, γ = 0.625, z0 = 0.0, μ_z = z0, N_z = 11, procyclical = true)
 
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -84,7 +81,7 @@ function optA(z, modd, Y, θ)
 end
 
 """
-Solve the model WITHOUT savings using a bisection search on θ.
+Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, θ_lb_0 =  0.0, θ_ub_0 = 15.0)
@@ -108,26 +105,22 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     θ_0    = (θ_lb + θ_ub)/2 # initial guess for θ
     α      = 0               # dampening parameter
     Y_0    = 0               # initalize Y_0 for export
-    IR_lhs = 0               # initalize IR for export
+    U      = 0               # initalize worker's EU from contract for export
     w_0    = 0               # initialize initial wage constant for export
 
     # Initialize series
     az     = zeros(N_z)   # a(z|z_0)                         
-    yz     = zeros(N_z)   # a(z|z_0)                         
-    a_flag = zeros(N_z)   # a(z|z_0)                         
+    yz     = zeros(N_z)   # y(z|z_0)                         
+    a_flag = zeros(N_z)   # flag for a(z|z_0)                         
 
     # Look for a fixed point in θ_0
-    @inbounds while err1 > tol1 && iter1 < max_iter1
-        
-        # Look for a fixed point in Y_0
+    @inbounds while err1 > tol1 && iter1 < max_iter1  
+        # Look for a fixed point in Y(z | z_0), ∀ z
         err2   = 10
         iter2  = 1      
-        Y_lb   = κ/q(θ_0)                    # lower search bound
-        Y_ub   = 50*κ/q(θ_0)                 # upper search bound
-        Y_0    = ones(N_z)*(Y_lb + Y_ub)/2   # initial guess for Y(z)
-       
+        Y_0    = ones(N_z)*(30*κ/q(θ_0))   # initial guess for Y(z | z_0)
         @inbounds while err2 > tol2 && iter2 < max_iter2   
-            # Solve for optimal effort
+            # Solve for optimal effort a(z | z_0)
             @inbounds for (iz,z) in enumerate(zgrid)
                 az[iz], yz[iz], a_flag[iz] = optA(z, modd, Y_0[z0_idx], θ_0)
             end
@@ -143,10 +136,10 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) 
         err3   = 10
         iter3  = 1  
-        W_0    = β*s*ω
-        term1  = -(1/2ψ)*(ψ*hp.(az)σ_η).^2 - h.(az)
+        W_0    = ω # initial guess
+        flow  = -(1/2ψ)*(ψ*hp.(az)σ_η).^2 - h.(az) + β*s*P_z*ω
         @inbounds while err3 > tol3 && iter3 < max_iter3
-            W_1  = term1 + P_z*(β*s*ω + β*(1-s)*W_0)
+            W_1  = flow + β*(1-s)*P_z*W_0
             err3 = maximum(abs.(W_1 - W_0))
             #α   = iter3 > 100 ? 0.75 : α 
             W_0  = α*W_0 + (1-α)*W_1
@@ -155,12 +148,12 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
 
         # Check the IR constraint (must bind)
-        IR_lhs = (1/ψ)*log(w_0) + W_0[z0_idx] 
-        err1   = abs(IR_lhs - ω_0)
-        # Upate θ
-        if IR_lhs > ω_0
+        U      = (1/ψ)*log(w_0) + W_0[z0_idx] 
+        err1   = abs(U - ω_0)
+        # Upate θ accordingly
+        if U > ω_0
             θ_lb  = copy(θ_0)
-        elseif IR_lhs < ω_0
+        elseif U < ω_0
             θ_ub  = copy(θ_0)
         end
         θ_0    = (θ_lb + θ_ub)/2
@@ -176,7 +169,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
     end
 
-    return (θ = θ_0, Y = Y_0[z0_idx], V = IR_lhs, ω_0 = ω_0, w_0 = w_0, mod = modd,
+    return (θ = θ_0, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3,
     effort_flag = a_flag, exit_flag1 = (iter1 >= max_iter1), exit_flag2 = (iter2 >= max_iter2), exit_flag3 = (iter3 >= max_iter3))
 end
