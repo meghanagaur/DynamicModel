@@ -27,6 +27,7 @@ procyclical == (procyclical unemployment benefit)
 function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.978, σ_ϵ = 0.007, χ = 0.1, γ = 0.625, z0 = 0.0, μ_z = z0, N_z = 11, procyclical = true)
 
+    # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
     f(θ)    = 1/(1 + θ^-ι)^(1/ι)                    # job-filling rate
     u(c)    = log(max(c, eps()))                    # utility from consumption                
@@ -35,14 +36,16 @@ function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.
     hp(a)   = a^(1/ε)                               # h'(a)
     r       = 1/β -1                                # interest rate        
 
+    # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
     logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)       # discretized logz grid & transition probabilties
     zgrid     = exp.(logz)                          # actual productivity grid
+    z0_idx    = findfirst(isequal(z0), logz)        # index of z0 on zgrid
 
-    # pass-through parameter
+    # Pass-through parameter
     ψ    = 1 - β*(1-s)
 
-    # unemployment benefit given current state: (z) or (z,b)
+    # Unemployment benefit given aggregate state: (z) 
     if procyclical == true
         ξ(z) = γ + χ*(z - z_ss) 
     elseif procyclical == false
@@ -59,7 +62,7 @@ function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.
     
     return (β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, 
     ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, h = h, u = u, hp = hp, 
-    zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
+    z0_idx = z0_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
 end
 
 """
@@ -89,7 +92,7 @@ Solve the infinite horizon EGSS model using a bisection search on θ.
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, θ_lb_0 =  0.0, θ_ub_0 = 15.0)
 
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0 = modd  
+    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = modd  
 
     # set tolerance parameters for outermost loop
     err1  = 10
@@ -101,8 +104,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     iter3 = 1
 
     # Initialize default values and search parameters
-    z0_idx = findfirst(isequal(z0), log.(zgrid))  # index of z0 on zgrid
-    ω_0    = procyclical ? ω[z0_idx] : ω          # unemployment value at z0
+    ω_0    = procyclical ? ω[z0_idx] : ω # unemployment value at z0
     θ_lb   = θ_lb_0          # lower search bound for θ
     θ_ub   = θ_ub_0          # upper search bound for θ
     θ_0    = (θ_lb + θ_ub)/2 # initial guess for θ
@@ -180,7 +182,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
     end
 
-    return (θ = θ_0, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd,
+    return (θ = θ_0, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 < 0),
     effort_flag = maximum(a_flag), exit_flag1 = (iter1 >= max_iter1), exit_flag2 = (iter2 >= max_iter2), exit_flag3 = (iter3 >= max_iter3))
 end
