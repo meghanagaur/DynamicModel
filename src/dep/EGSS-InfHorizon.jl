@@ -13,10 +13,10 @@ s    = exogenous separation rate
 ω    = worker's PV from unemployment (infinite horizon)
 χ    = prop. of unemp benefit to z / actual unemp benefit
 γ    = intercept for unemp benefit w/ procyclical benefit
-z_ss = steady state productivity
+z_ss = steady state productivity (definition)
 σ_η  = st dev of η distribution
-μ_z  = unconditional mean of log prod.
-z0   = initial (log) prod.
+μ_z  = unconditional mean of log prod. process (= z_ss by default)
+z0   = initial prod. (= z_ss by default)
 ρ    = persistence of log prod. process
 σ_ϵ  = variance of innovation in log prod. process
 ε    = Frisch elasticity: disutility of effort
@@ -25,7 +25,7 @@ z0   = initial (log) prod.
 procyclical == (procyclical unemployment benefit)
 """
 function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
-    ρ =  0.978, σ_ϵ = 0.007, χ = 0.1, γ = 0.625, z0 = 0.0, μ_z = z0, N_z = 11, procyclical = true)
+    ρ =  0.978, σ_ϵ = 0.007, χ = 0.1, γ = 0.625, z0 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
 
     # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -38,9 +38,9 @@ function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
-    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)       # discretized logz grid & transition probabilties
-    zgrid     = exp.(logz)                          # actual productivity grid
-    z0_idx    = findfirst(isequal(z0), logz)        # index of z0 on zgrid
+    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)        # discretized logz grid & transition probabilties
+    zgrid     = exp.(logz)                           # actual productivity grid
+    z0_idx    = findfirst(isapprox(z0), zgrid)       # index of z0 on zgrid
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -60,7 +60,7 @@ function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
-    return (β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, 
+    return (β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
     ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, h = h, u = u, hp = hp, 
     z0_idx = z0_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
 end
