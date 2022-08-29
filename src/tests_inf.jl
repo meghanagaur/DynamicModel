@@ -9,35 +9,30 @@ using DataStructures, Distributions, ForwardDiff, Interpolations,
 zgrid = model().zgrid
 
 # min χ
-mod1 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.0))
-mod2 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.0))
+mod1 = solveModel(model(z0 = minimum(zgrid), χ = 0.0))
+mod2 = solveModel(model(z0 = maximum(zgrid), χ = 0.0))
 
 # max χ
-mod3 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.5))
-mod4 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.5))
+mod3 = solveModel(model(z0 = minimum(zgrid), χ = 0.5))
+mod4 = solveModel(model(z0 = maximum(zgrid), χ = 0.5))
 
 # median χ
-mod5 = solveModel(model(z0 = log(minimum(zgrid)), χ = 0.3))
-mod6 = solveModel(model(z0 = log(maximum(zgrid)), χ = 0.3))
+mod5 = solveModel(model(z0 = minimum(zgrid), χ = 0.3))
+mod6 = solveModel(model(z0 = maximum(zgrid), χ = 0.3))
 
 # median z_0
-mod7 = solveModel(model(z0 = log(median(zgrid)), χ = 0.0))
-mod8 = solveModel(model(z0 = log(median(zgrid)), χ = 0.3))
-mod9 = solveModel(model(z0 = log(median(zgrid)), χ = 0.5))
+mod7 = solveModel(model(z0 = median(zgrid), χ = 0.0))
+mod8 = solveModel(model(z0 = median(zgrid), χ = 0.3))
+mod9 = solveModel(model(z0 = median(zgrid), χ = 0.5))
 
 
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
-function partial(θ_0; m =model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
+function partial(θ_0; m = model(z0=minimum(zgrid)), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0 = m 
+    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m 
 
     # Initialize default values and search parameters
-    z0_idx = findfirst(isequal(z0), log.(zgrid))  # index of z0 on zgrid
     ω_0    = procyclical ? ω[z0_idx] : ω # unemployment value at z0
-    α      = 0.25            # dampening parameter
-    Y_0    = 0               # initalize Y_0 for export
-    IR     = 0               # initalize IR for export
-    w_0    = 0               # initialize initial wage constant for export
 
     # Initialize series
     az    = zeros(N_z)   # a(z|z_0)                         
@@ -45,7 +40,6 @@ function partial(θ_0; m =model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 
     flag  = zeros(N_z)   # a(z|z_0)                         
 
     # Look for a fixed point in θ_0
-    
     err2   = 10
     iter2  = 1      
     Y_lb   = κ/q(θ_0)                    # lower search bound
@@ -54,8 +48,9 @@ function partial(θ_0; m =model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 
     
     # Look for a fixed point in Y_0
     @inbounds while err2 > tol2 && iter2 < max_iter2   
+        w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # time-0 earnings (constant)
         @inbounds for (iz,z) in enumerate(zgrid)
-            az[iz], yz[iz], flag[iz] = optA(z, m, Y_0[z0_idx], θ_0)
+            az[iz], yz[iz], flag[iz] = optA(z, m, w_0)
         end
         Y_1    = yz + β*(1-s)*P_z*Y_0    
         err2   = maximum(abs.(Y_0 - Y_1))  # Error       
@@ -65,11 +60,12 @@ function partial(θ_0; m =model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 
         #println(Y_0[z0_idx])
     end
 
-    # Solve recursively for LHS of IR constraint
     w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # time-0 earnings (constant)
+
+    # Solve recursively for LHS of IR constraint
     err3   = 10
     iter3  = 1  
-    W_0    = β*s*ω
+    W_0    = copy(ω)
     flow   = -(1/2ψ)*(ψ*hp.(az)σ_η).^2 - h.(az)
     @inbounds while err3 > tol3 && iter3 < max_iter3
         W_1  = flow + P_z*(β*(1-s)*W_0 + β*s*ω)
@@ -141,3 +137,32 @@ xlabel!(p2,L"b")
 
 plot(p1, p2, layout = (2, 1),legend=:topleft)
 
+## playing around with the matching function
+q1(θ,ι)  = 1/(1 + θ^ι)^(1/ι)  
+q2(θ)    =  max(min(1.355*θ^(-0.72),1),0)
+
+plot(x->q1(x,1),0,5)
+plot!(x->q1(x,2),0,5)
+plot!(x->q1(x,3),0,5)
+plot!(x->q1(x,4),0,5)
+plot!(x->q1(x,5),0,5)
+plot!(q2,0,5)
+ylabel!(L"q(\theta)")
+xlabel!(L"\theta")
+
+function derivNumerical1(x,ι)
+    g = ForwardDiff.derivative(y -> q1(y, ι), x)  
+    return g*x/q1(x,ι)
+end 
+
+function derivNumerical2(x)
+    g = ForwardDiff.derivative(q2, x)  
+    return g*x/q2(x)
+end 
+
+plot(x->derivNumerical1(x,1),0,5)
+plot!(x->derivNumerical1(x,2),0,5)
+plot!(x->derivNumerical1(x,3),0,5)
+plot!(x->derivNumerical1(x,4),0,5)
+plot!(x->derivNumerical1(x,5),0,5)
+plot!(derivNumerical2,0,5)
