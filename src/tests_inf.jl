@@ -27,7 +27,7 @@ mod9 = solveModel(model(z0 = median(zgrid), χ = 0.5))
 
 
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
-function partial(θ_0; m = model(z0=minimum(zgrid)), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
+function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m 
 
@@ -84,7 +84,7 @@ end
 
 #= plot to see how present value for worker, output, and w0 change with θ
 helpful for checking how we should update theta for convergence =#
-tgrid = collect(0.0:0.5:10)
+tgrid = collect(0.0:0.05:5)
 modd  = OrderedDict{Int64, Any}()
 for i = 1:length(tgrid)
     modd[i] = partial.(tgrid[i])
@@ -97,9 +97,9 @@ w0    = [modd[i].w_0 for i = 1:length(tgrid)]
 
 p1 = plot(tgrid, Y , ylabel=L"Y_0", xlabel=L"\theta_0", label="")
 
-@unpack ι = model()
-qq(x) = 1/(1 + x^ ι)^(1/ι)
-p2 = plot(qq,minimum(tgrid),maximum(tgrid), ylabel=L"q(\theta_0)",xlabel=L"\theta_0",label="")
+@unpack ι, κ = model()
+qq(x) = κ*(1 + x^ ι)^(1/ι)
+p2 = plot(qq, minimum(tgrid),maximum(tgrid), ylabel=L"\kappa/q(\theta_0)",xlabel=L"\theta_0",label="")
 
 p3 = plot(tgrid, V , label=L"V", legend=true)
 plot!(p3, tgrid, ω0, label=L"\omega_0",xlabel=L"\theta_0")
