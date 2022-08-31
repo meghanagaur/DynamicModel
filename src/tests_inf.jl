@@ -166,3 +166,44 @@ plot!(x->derivNumerical1(x,3),0,5)
 plot!(x->derivNumerical1(x,4),0,5)
 plot!(x->derivNumerical1(x,5),0,5)
 plot!(derivNumerical2,0,5)
+
+## play around with κ
+kgrid = 0.2:0.05:0.5
+t1    = zeros(size(kgrid))
+
+@inbounds for (i,k) in enumerate(kgrid)
+    t1[i]  = solveModel(model(κ=k),noisy=false).θ
+ end
+
+p1=plot(kgrid, t1, ylabel=L"\theta",label="constant b")
+ylabel!(p1,L"\theta")
+xlabel!(p1,L"b")
+
+## Check unemployment value -- functional form for ξ from John's Isomorphism doc
+@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u = model()
+ξ(z) = exp(γ)*(z/z_ss)^χ
+
+function unemploymentValueCheck(β, ξ, u, zgrid, P_z; tol = 10^-10, max_iter = 5000)
+    
+    N_z    = length(zgrid)
+    v0_new = zeros(N_z)
+    v0     = u.(ξ.(zgrid))
+    iter   = 1
+    err    = 10
+
+    # solve via simple value function iteration
+    @inbounds while err > tol && iter < max_iter
+        v0_new = u.(ξ.(zgrid)) + β*P_z*v0
+        err    = maximum(abs.(v0_new - v0))
+        v0     = copy(v0_new)
+        iter   +=1
+    end
+    return (v0 = v0, err = err, iter = iter) 
+end
+
+v0       = unemploymentValueCheck(β, ξ, u, zgrid, P_z).v0
+A        = (γ - χ*log(z_ss))/(1-β)
+B        = χ/(1-β*ρ)
+v0_check = A .+ B*log.(zgrid)
+
+maximum(abs.(v0-v0_check))

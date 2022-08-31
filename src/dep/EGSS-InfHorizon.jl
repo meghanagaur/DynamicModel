@@ -13,7 +13,7 @@ s    = exogenous separation rate
 ω    = worker's PV from unemployment (infinite horizon)
 χ    = prop. of unemp benefit to z / actual unemp benefit
 γ    = intercept for unemp benefit w/ procyclical benefit
-z_ss = steady state productivity (definition)
+z_ss = steady state of productivity (this is a definition)
 σ_η  = st dev of η distribution
 μ_z  = unconditional mean of log prod. process (= log(z_ss) by default)
 z0   = initial prod. (= z_ss by default)
@@ -24,9 +24,9 @@ z0   = initial prod. (= z_ss by default)
 
 procyclical == (procyclical unemployment benefit)
 """ 
-#ρ =  0.97   # ι = 1.25 (monthly)
-#σ_ϵ = 0.008 # κ =  0.213 (quarterly)
-function model(; β = 0.99, s = 0.1, κ = 0.45, ι = 1.5, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
+#ρ =  0.97 (quarterly - linear time trend)   # ι = 1.25 (PNZ = monthly)
+#σ_ϵ = 0.008 (quarterly - linear time trend) # κ =  0.213 (Shimer)
+function model(; β = 0.99, s = 0.1, κ = 0.45, ι = 1.6, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z0 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
 
     # Basic parameterization
@@ -92,7 +92,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, θ_lb_0 =  0.0, θ_ub_0 = 5.0)
+    tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, θ_lb_0 =  0.0, θ_ub_0 = 15.0)
 
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = modd  
 

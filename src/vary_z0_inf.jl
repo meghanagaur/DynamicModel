@@ -5,48 +5,6 @@ linewidth = 2, gridstyle = :dash, gridlinewidth = 1.2, margin = 10* Plots.px,leg
 using DataStructures, Distributions, ForwardDiff, Interpolations,
  LinearAlgebra, Parameters, Random, Roots, StatsBase, DynamicModel
 
-# re-define model so that μ_z = z_ss and varying z_0 does NOT affect μ_z
-function model(; β = 0.99, s = 0.1, κ = 0.213, ι = 1.25, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
-    ρ =  0.978, σ_ϵ = 0.007, χ = 0.1, γ = 0.625, z0 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
-
-    # Basic parameterization
-    q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
-    f(θ)    = 1/(1 + θ^-ι)^(1/ι)                    # job-filling rate
-    u(c)    = log(max(c, eps()))                    # utility from consumption                
-    h(a)    = (a^(1 + 1/ε))/(1 + 1/ε)               # disutility from effort  
-    u(c, a) = u(c) - h(a)                           # utility function
-    hp(a)   = a^(1/ε)                               # h'(a)
-    r       = 1/β -1                                # interest rate        
-
-    # Define productivity grid
-    if (iseven(N_z)) error("N_z must be odd") end 
-    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)        # discretized logz grid & transition probabilties
-    zgrid     = exp.(logz)                           # actual productivity grid
-    z0_idx    = findfirst(isapprox(z0), zgrid)       # index of z0 on zgrid
-
-    # Pass-through parameter
-    ψ    = 1 - β*(1-s)
-
-    # Unemployment benefit given aggregate state: (z) 
-    if procyclical == true
-        ξ(z) = γ + χ*(z - z_ss) 
-    elseif procyclical == false
-        ξ    = γ
-    end
-
-    # PV of unemp = PV of utility from consuming unemployment benefit forever
-    if procyclical == false
-        ω = log(ξ)/(1-β) # scalar
-    elseif procyclical == true
-        println("Solving for value of unemployment...")
-        ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
-    end
-    
-    return (β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
-    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, h = h, u = u, hp = hp, 
-    z0_idx = z0_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
-end
-
 # Define the zgrid and χ
 χ       = 0.3
 modd    = OrderedDict{Int64, Any}()
