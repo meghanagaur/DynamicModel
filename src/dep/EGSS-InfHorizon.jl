@@ -26,7 +26,7 @@ procyclical == (procyclical unemployment benefit)
 """ 
 #ρ =  0.97 (quarterly - linear time trend)   # ι = 1.25 (PNZ = monthly)
 #σ_ϵ = 0.008 (quarterly - linear time trend) # κ =  0.213 (Shimer)
-function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 3.05, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
+function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z0 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
 
     # Basic parameterization
@@ -49,7 +49,7 @@ function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 3.05, ε = 0.5, σ_η = 0.
 
     # Unemployment benefit given aggregate state: (z) 
     if procyclical == true
-        ξ(z) = γ + χ*(z - z_ss) 
+        ξ(z) = (γ)*(z/z_ss)^χ 
     elseif procyclical == false
         ξ    = γ
     end
@@ -185,11 +185,11 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
 
         # stop if q is stuck near bounds + the  IR constraint is satisfied
         if ((abs(q_0 - q_ub_0) < 10^-8 ) || (abs(q_0 - q_lb_0) < 10^-8 )) #&& U > ω_0
-            iter1 = max_iter1+1
+            iter1 = max_iter1 + 1
            # break                
         end
     end
-
+    # θ = q^-1 ∘ q(θ)
     θ = (q_0^(-ι) - 1)^(1/ι)
 
     return (θ = θ, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
