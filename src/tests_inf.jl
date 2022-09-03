@@ -27,9 +27,9 @@ mod9 = solveModel(model(z0 = median(zgrid), χ = 0.5))
 
 
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
-function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
+function partial(θ_0; m = model(ε=3), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m 
+    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m
 
     # Initialize default values and search parameters
     ω_0    = procyclical ? ω[z0_idx] : ω # unemployment value at z0
@@ -207,3 +207,13 @@ B        = χ/(1-β*ρ)
 v0_check = A .+ B*log.(zgrid)
 
 maximum(abs.(v0-v0_check))
+
+## check γ, χ bounds
+@unpack zgrid = model()
+
+plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
+plot!(1 .- log(0.3)./log.(zgrid),label=L"\gamma =0.3")
+
+plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
+hline!([-1])
+hline!([1])

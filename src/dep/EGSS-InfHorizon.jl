@@ -70,15 +70,15 @@ end
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 """
-function optA(z, modd, w_0)
+function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         aa = (z/w_0)/(1 + ψ*σ_η^2)
-    else # solve for the positive root 
-        aa = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), 0, 20) 
+    else # solve for the positive root. note: a_min > 0 (to allow for numerical error)
+        aa = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), a_min, a_max) 
     end
     if ~isempty(aa)
-        a      = ~isempty(aa) ? aa[1] : 0
+        a      = aa[1] 
         a_flag = max( ((z*aa[1]/w_0 + (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
     elseif isempty(aa)
         a       = 0
@@ -92,7 +92,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-7, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
+    tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
 
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = modd  
 
@@ -165,7 +165,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
 
         # Check the IR constraint (must bind)
-        U      = (1/ψ)*log(w_0) + W_0[z0_idx] 
+        U      = (1/ψ)*log(max(eps(),w_0)) + W_0[z0_idx] 
         err1   = abs(U - ω_0)
         
         # Upate θ accordingly
@@ -184,7 +184,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
 
         # stop if q is stuck near bounds 
-        if ((abs(q_0 - q_ub_0) < 10^-8 ) || (abs(q_0 - q_lb_0) < 10^-8 )) 
+        if ((abs(q_0 - q_ub_0) < 10^-6 ) || (abs(q_0 - q_lb_0) < 10^-6 )) 
             # check if the  IR constraint is satisfied
             #= if U > ω_0
                 break
