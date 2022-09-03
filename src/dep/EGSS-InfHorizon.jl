@@ -74,8 +74,10 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         aa = (z/w_0)/(1 + ψ*σ_η^2)
+        #aa2 = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
+        #@assert(isapprox(aa,aa2[1]))
     else # solve for the positive root. note: a_min > 0 (to allow for numerical error)
-        aa = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + Inf*(x==0), a_min, a_max) 
+        aa = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
     end
     if ~isempty(aa)
         a      = aa[1] 
