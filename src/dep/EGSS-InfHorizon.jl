@@ -58,7 +58,7 @@ function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.
     if procyclical == false
         ω = log(ξ)/(1-β) # scalar
     elseif procyclical == true
-        println("Solving for value of unemployment...")
+        #println("Solving for value of unemployment...")
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
