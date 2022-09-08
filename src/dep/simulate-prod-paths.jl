@@ -15,8 +15,8 @@ function simulateProd(P_z, zgrid, T; N = 10000, z_1_idx = median(1:length(zgrid)
     CDF      = cumsum(P_z, dims = 2) # CDF for transition probs. given initial state
     probs    = ones(N)               # N x 1 - probability of a given sequence
 
-    @inbounds for t = 2:T
-        Threads.@threads for i = 1:N
+    @views @inbounds for t = 2:T
+        @inbounds for i = 1:N
             zt[i, t]  = findfirst(x-> x >=  sim[i,t], CDF[zt[i,t-1], :]) 
             probs[i]  =  P_z[zt[i,t-1], zt[i,t]]*probs[i]
         end
