@@ -9,21 +9,21 @@ using DataStructures, Distributions, ForwardDiff, Interpolations,
 zgrid = model().zgrid
 
 # min χ
-mod1 = solveModel(model(z0 = minimum(zgrid), χ = 0.0))
-mod2 = solveModel(model(z0 = maximum(zgrid), χ = 0.0))
+mod1 = solveModel(model(z_1 = minimum(zgrid), χ = 0.0))
+mod2 = solveModel(model(z_1 = maximum(zgrid), χ = 0.0))
 
 # max χ
-mod3 = solveModel(model(z0 = minimum(zgrid), χ = 0.5))
-mod4 = solveModel(model(z0 = maximum(zgrid), χ = 0.5))
+mod3 = solveModel(model(z_1 = minimum(zgrid), χ = 0.5))
+mod4 = solveModel(model(z_1 = maximum(zgrid), χ = 0.5))
 
 # median χ
-mod5 = solveModel(model(z0 = minimum(zgrid), χ = 0.3))
-mod6 = solveModel(model(z0 = maximum(zgrid), χ = 0.3))
+mod5 = solveModel(model(z_1 = minimum(zgrid), χ = 0.3))
+mod6 = solveModel(model(z_1 = maximum(zgrid), χ = 0.3))
 
 # median z_0
-mod7 = solveModel(model(z0 = median(zgrid), χ = 0.0))
-mod8 = solveModel(model(z0 = median(zgrid), χ = 0.3))
-mod9 = solveModel(model(z0 = median(zgrid), χ = 0.5))
+mod7 = solveModel(model(z_1 = median(zgrid), χ = 0.0))
+mod8 = solveModel(model(z_1 = median(zgrid), χ = 0.3))
+mod9 = solveModel(model(z_1 = median(zgrid), χ = 0.5))
 
 
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
@@ -112,7 +112,7 @@ plot(p1, p2, p3, p4,  layout = (2, 2))
 ## determine theta, as unemployment benefit scale χ varies
 ## NOTE: this depends on z0
 function tightness(bb)
-    sol = solveModel(model(χ = bb, z0 = model().zgrid[10]),noisy=false)
+    sol = solveModel(model(χ = bb, z_1 = model().zgrid[10]),noisy=false)
     return (θ = sol.θ, w_0 = sol.w_0)
 end
 
@@ -127,7 +127,7 @@ Threads.@threads for i = 1:length(bgrid)
  end
 
 # plot θ and w_0
-p1=plot(bgrid, t1, ylabel=L"\theta"))
+p1=plot(bgrid, t1, ylabel=L"\theta")
 ylabel!(p1,L"\theta")
 xlabel!(p1,L"b")
 p2=plot(bgrid, w01, ylabel=L"\theta")
@@ -172,7 +172,7 @@ ylabel!(p1,L"\theta")
 xlabel!(p1,L"\gamma")
 
 ## Check unemployment value -- functional form for ξ from John's Isomorphism doc
-@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u = model()
+@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u, β = model()
 ξ(z) = exp(γ)*(z/z_ss)^χ
 
 function unemploymentValueCheck(β, ξ, u, zgrid, P_z; tol = 10^-10, max_iter = 5000)

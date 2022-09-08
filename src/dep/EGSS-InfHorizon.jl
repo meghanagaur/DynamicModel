@@ -78,14 +78,14 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
         #aa2 = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
         #@assert(isapprox(aa,aa2[1]))
     else # solve for the positive root. note: a_min > 0 (to allow for numerical error)
-        aa = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
-    end
-    if ~isempty(aa)
-        a      = aa[1] 
-        a_flag = max( ((z*aa[1]/w_0 - (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
-    elseif isempty(aa)
-        a       = 0
-        a_flag  = 1
+        aa     = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
+        if ~isempty(aa)
+            a      = aa[1] 
+            a_flag = max( ((z*aa[1]/w_0 - (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
+        elseif isempty(aa)
+            a       = 0
+            a_flag  = 1
+        end
     end
     y      = a*z # Expectation of y_t over η_t (given z_t)
     return a, y, a_flag
@@ -97,7 +97,7 @@ Solve the infinite horizon EGSS model using a bisection search on θ.
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
 
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1, z_1_idx = modd  
+    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
     # set tolerance parameters for outermost loop
     err1  = 10
@@ -153,20 +153,34 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             #println(Y_0[z_1_idx])
         end
 
-        # Solve recursively for the PV utility from the contract
         err3  = 10
         iter3 = 1  
-        W_0   = copy(ω) # initial guess
-        flow  = -(1/2ψ)*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*P_z*ω
-        @inbounds while err3 > tol3 && iter3 <= max_iter3
-            W_1  = flow + β*(1-s)*P_z*W_0 
-            err3 = maximum(abs.(W_1 - W_0))
-            #α   = iter3 > 100 ? 0.75 : α 
-            W_0  = α*W_0 + (1-α)*W_1
-            #println(W_0[z_1_idx])
-            iter3 +=1
-        end
 
+        if procyclical == true
+            # Solve recursively for the PV utility from the contract
+            W_0   = copy(ω) # initial guess
+            flow  = -(1/2ψ)*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*P_z*ω
+            @inbounds while err3 > tol3 && iter3 <= max_iter3
+                W_1  = flow + β*(1-s)*P_z*W_0 
+                err3 = maximum(abs.(W_1 - W_0))
+                #α   = iter3 > 100 ? 0.75 : α 
+                W_0  = α*W_0 + (1-α)*W_1
+                #println(W_0[z_1_idx])
+                iter3 +=1
+            end
+        else
+            # Solve recursively for the PV utility from the contract
+            W_0   = copy(ω)*ones(N_z) # initial guess
+            flow  = -(1/2ψ)*(ψ*hp.(az)*σ_η).^2 - h.(az) .+ β*s*ω
+            @inbounds while err3 > tol3 && iter3 <= max_iter3
+                W_1  = flow + β*(1-s)*P_z*W_0 
+                err3 = maximum(abs.(W_1 - W_0))
+                #α   = iter3 > 100 ? 0.75 : α 
+                W_0  = α*W_0 + (1-α)*W_1
+                #println(W_0[z_1_idx])
+                iter3 +=1
+            end
+        end
         # Check the IR constraint (must bind)
         U      = (1/ψ)*log(max(eps(),w_0)) + W_0[z_1_idx] 
         err1   = abs(U - ω_0)
