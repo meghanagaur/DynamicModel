@@ -27,7 +27,7 @@ mod9 = solveModel(model(z0 = median(zgrid), χ = 0.5))
 
 
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
-function partial(θ_0; m = model(ε=3), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
+function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m
 
@@ -84,9 +84,9 @@ end
 
 #= plot to see how present value for worker, output, and w0 change with θ
 helpful for checking how we should update theta for convergence =#
-tgrid = collect(0.0:0.05:5)
+tgrid = collect(0.0:0.025:3)
 modd  = OrderedDict{Int64, Any}()
-for i = 1:length(tgrid)
+Threads.@threads for i = 1:length(tgrid)
     modd[i] = partial.(tgrid[i])
 end
 
@@ -110,74 +110,66 @@ plot(p1, p2, p3, p4,  layout = (2, 2))
 #savefig(dir*"vary_theta.png")
 
 ## determine theta, as unemployment benefit scale χ varies
+## NOTE: this depends on z0
 function tightness(bb)
-    sol = solveModel(model(χ= bb),noisy=false)
+    sol = solveModel(model(χ = bb, z0 = model().zgrid[10]),noisy=false)
     return (θ = sol.θ, w_0 = sol.w_0)
 end
 
 bgrid = 0.6:0.05:0.7
+t1    = zeros(size(bgrid))
+w01   = zeros(size(bgrid))
 
-t1  = zeros(size(bgrid))
-w01 = zeros(size(bgrid))
-
-@inbounds for i = 1:length(bgrid)
+Threads.@threads for i = 1:length(bgrid)
     modd1  = tightness.(bgrid[i])
     t1[i]  = modd1.θ
     w01[i] = modd1.w_0
  end
 
-p1=plot(bgrid, t1, ylabel=L"\theta",label="constant b")
+# plot θ and w_0
+p1=plot(bgrid, t1, ylabel=L"\theta"))
 ylabel!(p1,L"\theta")
 xlabel!(p1,L"b")
-
-# extra plot
-p2=plot(bgrid, w01, ylabel=L"\theta",label="constant b")
+p2=plot(bgrid, w01, ylabel=L"\theta")
 ylabel!(p2,L"w_0")
 xlabel!(p2,L"b")
-
 plot(p1, p2, layout = (2, 1),legend=:topleft)
-
-## playing around with the matching function
-q1(θ,ι)  = 1/(1 + θ^ι)^(1/ι)  
-q2(θ)    =  max(min(1.355*θ^(-0.72),1),0)
-
-plot(x->q1(x,1),0,5)
-plot!(x->q1(x,2),0,5)
-plot!(x->q1(x,3),0,5)
-plot!(x->q1(x,4),0,5)
-plot!(x->q1(x,5),0,5)
-plot!(q2,0,5)
-ylabel!(L"q(\theta)")
-xlabel!(L"\theta")
-
-function derivNumerical1(x,ι)
-    g = ForwardDiff.derivative(y -> q1(y, ι), x)  
-    return g*x/q1(x,ι)
-end 
-
-function derivNumerical2(x)
-    g = ForwardDiff.derivative(q2, x)  
-    return g*x/q2(x)
-end 
-
-plot(x->derivNumerical1(x,1),0,5)
-plot!(x->derivNumerical1(x,2),0,5)
-plot!(x->derivNumerical1(x,3),0,5)
-plot!(x->derivNumerical1(x,4),0,5)
-plot!(x->derivNumerical1(x,5),0,5)
-plot!(derivNumerical2,0,5)
 
 ## play around with κ
 kgrid = 0.2:0.05:0.5
-t1    = zeros(size(kgrid))
+t_k   = zeros(size(kgrid))
 
-@inbounds for (i,k) in enumerate(kgrid)
-    t1[i]  = solveModel(model(κ=k),noisy=false).θ
+Threads.@threads for i = 1:length(kgrid)
+    t_k[i]  = solveModel(model(κ=kgrid[i]),noisy=false).θ
  end
 
-p1=plot(kgrid, t1, ylabel=L"\theta",label="constant b")
+p1=plot(kgrid, t_k, ylabel=L"\theta")
 ylabel!(p1,L"\theta")
-xlabel!(p1,L"b")
+xlabel!(p1,L"\kappa")
+
+## play around with ε
+egrid = 0:0.1:1
+t_e   = zeros(size(egrid))
+
+Threads.@threads for i = 1:length(egrid)
+    t_e[i]  = solveModel(model(ε=egrid[i]),noisy=false).θ
+ end
+
+p1=plot(egrid, t_e, ylabel=L"\theta")
+ylabel!(p1,L"\theta")
+xlabel!(p1,L"\varepsilon")
+
+## play around with γ
+ggrid = 0.1:0.05:0.9
+t_g   = zeros(size(ggrid))
+
+Threads.@threads for i = 1:length(ggrid)
+    t_g[i]  = solveModel(model(γ=ggrid[i]),noisy=false).θ
+ end
+
+p1=plot(ggrid, t_g, ylabel=L"\theta")
+ylabel!(p1,L"\theta")
+xlabel!(p1,L"\gamma")
 
 ## Check unemployment value -- functional form for ξ from John's Isomorphism doc
 @unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u = model()
@@ -211,9 +203,42 @@ maximum(abs.(v0-v0_check))
 ## check γ, χ bounds
 @unpack zgrid = model()
 
+# plot all the γ
 plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
+plot!(1 .- log(0.66)./log.(zgrid),label=L"\gamma =0.66")
 plot!(1 .- log(0.3)./log.(zgrid),label=L"\gamma =0.3")
 
+# plot the log z bounds
 plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
-hline!([-1])
-hline!([1])
+hline!([-1], label=L"\underbar{\chi}")
+hline!([1],label=L"\bar{\chi}")
+ 
+## playing around with the matching function
+q1(θ,ι)  = 1/(1 + θ^ι)^(1/ι)  
+q2(θ)    =  max(min(1.355*θ^(-0.72),1),0)
+
+plot(x->q1(x,1),0,5)
+plot!(x->q1(x,2),0,5)
+plot!(x->q1(x,3),0,5)
+plot!(x->q1(x,4),0,5)
+plot!(x->q1(x,5),0,5)
+plot!(q2,0,5)
+ylabel!(L"q(\theta)")
+xlabel!(L"\theta")
+
+function derivNumerical1(x,ι)
+    g = ForwardDiff.derivative(y -> q1(y, ι), x)  
+    return g*x/q1(x,ι)
+end 
+
+function derivNumerical2(x)
+    g = ForwardDiff.derivative(q2, x)  
+    return g*x/q2(x)
+end 
+
+plot(x->derivNumerical1(x,1),0,5)
+plot!(x->derivNumerical1(x,2),0,5)
+plot!(x->derivNumerical1(x,3),0,5)
+plot!(x->derivNumerical1(x,4),0,5)
+plot!(x->derivNumerical1(x,5),0,5)
+plot!(derivNumerical2,0,5)

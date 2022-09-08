@@ -1,4 +1,4 @@
-#= Solve the infinite horizon dynamic EGSS model (first pass). 
+#= Solve the infinite horizon dynamic EGSS model. 
 Quarterly calibration, no savings. =#
 
 """
@@ -14,6 +14,7 @@ s    = exogenous separation rate
 χ    = prop. of unemp benefit to z / actual unemp benefit
 γ    = intercept for unemp benefit w/ procyclical benefit
 z_ss = steady state of productivity (this is a definition)
+z_0  = value of initial z; MUST BE ON ZGRID.
 σ_η  = st dev of η distribution
 μ_z  = unconditional mean of log prod. process (= log(z_ss) by default)
 z0   = initial prod. (= z_ss by default)
@@ -77,11 +78,11 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
         #aa2 = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
         #@assert(isapprox(aa,aa2[1]))
     else # solve for the positive root. note: a_min > 0 (to allow for numerical error)
-        aa = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
+        aa = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
     end
     if ~isempty(aa)
         a      = aa[1] 
-        a_flag = max( ((z*aa[1]/w_0 + (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
+        a_flag = max( ((z*aa[1]/w_0 - (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
     elseif isempty(aa)
         a       = 0
         a_flag  = 1
@@ -89,7 +90,7 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
     y      = a*z # Expectation of y_t over η_t (given z_t)
     return a, y, a_flag
 end
-
+modd=model()
 """
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
@@ -132,7 +133,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         # Look for a fixed point in Y(z | z_0), ∀ z
         err2   = 10
         iter2  = 1      
-        Y_0    = ones(N_z)*(30*κ/q_0)   # initial guess for Y(z | z_0)
+        Y_0    = ones(N_z)*(50*κ/q_0)   # initial guess for Y(z | z_0)
         
         @inbounds while err2 > tol2 && iter2 <= max_iter2   
             w_0  = ψ*(Y_0[z0_idx] - κ/q_0) # constant for wage difference equation
@@ -156,9 +157,9 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         err3  = 10
         iter3 = 1  
         W_0   = copy(ω) # initial guess
-        flow  = -(1/2ψ)*(ψ*hp.(az)σ_η).^2 - h.(az) + β*s*P_z*ω
+        flow  = -(1/2ψ)*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*P_z*ω
         @inbounds while err3 > tol3 && iter3 <= max_iter3
-            W_1  = flow + β*(1-s)*P_z*W_0
+            W_1  = flow + β*(1-s)*P_z*W_0 
             err3 = maximum(abs.(W_1 - W_0))
             #α   = iter3 > 100 ? 0.75 : α 
             W_0  = α*W_0 + (1-α)*W_1
@@ -170,14 +171,14 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         U      = (1/ψ)*log(max(eps(),w_0)) + W_0[z0_idx] 
         err1   = abs(U - ω_0)
         
-        # Upate θ accordingly
-        if U < ω_0
+        # Upate θ accordingly: note U is decreasing in θ (=> increasing in q)
+        if U < ω_0 # increase q (decrease θ)
             q_lb  = copy(q_0)
-        elseif U > ω_0
+        elseif U > ω_0 # decrease q (increase θ)
             q_ub  = copy(q_0)
         end
 
-        # want to export the accurate iter & q value
+        # export the accurate iter & q value
         if (err1 > tol1)
             iter1 += 1
             if (iter1 < max_iter1) 
@@ -185,8 +186,8 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             end
         end
 
-        # stop if q is stuck near bounds 
-        if ((abs(q_0 - q_ub_0) < 10^-5 ) || (abs(q_0 - q_lb_0) < 10^-5 )) 
+        # exit loop if q is stuck near the bounds 
+        if max(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-6
             # check if the  IR constraint is satisfied
             #= if U > ω_0
                 break
@@ -200,7 +201,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     θ = (q_0^(-ι) - 1)^(1/ι)
 
     return (θ = θ, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
-    az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 < 0),
+    az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), exit_flag1 = (iter1 > max_iter1), exit_flag2 = (iter2 > max_iter2), exit_flag3 = (iter3 > max_iter3))
 end
 
