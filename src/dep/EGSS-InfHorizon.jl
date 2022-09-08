@@ -17,7 +17,7 @@ z_ss = steady state of productivity (this is a definition)
 z_0  = value of initial z; MUST BE ON ZGRID.
 σ_η  = st dev of η distribution
 μ_z  = unconditional mean of log prod. process (= log(z_ss) by default)
-z0   = initial prod. (= z_ss by default)
+z_1  = initial prod. (= z_ss by default)
 ρ    = persistence of log prod. process
 σ_ϵ  = variance of innovation in log prod. process
 ε    = Frisch elasticity: disutility of effort
@@ -28,7 +28,7 @@ procyclical == (procyclical unemployment benefit)
 #ρ =  0.97 (quarterly - linear time trend)   # ι = 1.25 (PNZ = monthly)
 #σ_ϵ = 0.008 (quarterly - linear time trend) # κ =  0.213 (Shimer)
 function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
-    ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z0 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
+    ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
 
     # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -43,7 +43,7 @@ function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.
     if (iseven(N_z)) error("N_z must be odd") end 
     logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)        # discretized logz grid & transition probabilties
     zgrid     = exp.(logz)                           # actual productivity grid
-    z0_idx    = findfirst(isapprox(z0), zgrid)       # index of z0 on zgrid
+    z_1_idx   = findfirst(isapprox(z_1), zgrid)      # index of z0 on zgrid
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -64,8 +64,8 @@ function model(; β = 0.99, s = 0.1, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.
     end
     
     return (β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
-    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z0 = z0, h = h, u = u, hp = hp, 
-    z0_idx = z0_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
+    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
+    z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
 end
 
 """
@@ -90,14 +90,14 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
     y      = a*z # Expectation of y_t over η_t (given z_t)
     return a, y, a_flag
 end
-modd=model()
+
 """
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
 
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = modd  
+    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1, z_1_idx = modd  
 
     # set tolerance parameters for outermost loop
     err1  = 10
@@ -109,19 +109,19 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     iter3 = 1
 
     # Initialize default values and search parameters
-    ω_0    = procyclical ? ω[z0_idx] : ω # unemployment value at z0
+    ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_1
     q_lb   = q_lb_0          # lower search bound for θ
     q_ub   = q_ub_0          # upper search bound for θ
     q_0    = (q_lb + q_ub)/2 # initial guess for θ
     α      = 0               # dampening parameter
-    Y_0    = 0               # initalize Y_0 for export
+    Y_0    = 0               # initalize Y for export
     U      = 0               # initalize worker's EU from contract for export
     w_0    = 0               # initialize initial wage constant for export
 
     # Initialize series
-    az     = zeros(N_z)   # a(z|z_0)                         
-    yz     = zeros(N_z)   # y(z|z_0)                         
-    a_flag = zeros(N_z)   # flag for a(z|z_0)                         
+    az     = zeros(N_z)   # a(z|z_1)                         
+    yz     = zeros(N_z)   # y(z|z_1)                         
+    a_flag = zeros(N_z)   # flag for a(z|z_1)                         
 
     # Look for a fixed point in θ_0
     @inbounds while err1 > tol1 && iter1 <= max_iter1  
@@ -130,14 +130,14 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             println(q_0)
         end
 
-        # Look for a fixed point in Y(z | z_0), ∀ z
+        # Look for a fixed point in Y(z | z_1), ∀ z
         err2   = 10
         iter2  = 1      
-        Y_0    = ones(N_z)*(50*κ/q_0)   # initial guess for Y(z | z_0)
+        Y_0    = ones(N_z)*(50*κ/q_0)   # initial guess for Y(z | z_1)
         
         @inbounds while err2 > tol2 && iter2 <= max_iter2   
-            w_0  = ψ*(Y_0[z0_idx] - κ/q_0) # constant for wage difference equation
-            # Solve for optimal effort a(z | z_0)
+            w_0  = ψ*(Y_0[z_1_idx] - κ/q_0) # constant for wage difference equation
+            # Solve for optimal effort a(z | z_1)
             @inbounds for (iz,z) in enumerate(zgrid)
                 az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0)
             end
@@ -150,7 +150,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
                     Y_0    = α*Y_0 + (1-α)*Y_1 
                 end
             end
-            #println(Y_0[z0_idx])
+            #println(Y_0[z_1_idx])
         end
 
         # Solve recursively for the PV utility from the contract
@@ -163,12 +163,12 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             err3 = maximum(abs.(W_1 - W_0))
             #α   = iter3 > 100 ? 0.75 : α 
             W_0  = α*W_0 + (1-α)*W_1
-            #println(W_0[z0_idx])
+            #println(W_0[z_1_idx])
             iter3 +=1
         end
 
         # Check the IR constraint (must bind)
-        U      = (1/ψ)*log(max(eps(),w_0)) + W_0[z0_idx] 
+        U      = (1/ψ)*log(max(eps(),w_0)) + W_0[z_1_idx] 
         err1   = abs(U - ω_0)
         
         # Upate θ accordingly: note U is decreasing in θ (=> increasing in q)
@@ -200,7 +200,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     # θ = q^-1 ∘ q(θ)
     θ = (q_0^(-ι) - 1)^(1/ι)
 
-    return (θ = θ, Y = Y_0[z0_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
+    return (θ = θ, Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), exit_flag1 = (iter1 > max_iter1), exit_flag2 = (iter2 > max_iter2), exit_flag3 = (iter3 > max_iter3))
 end
