@@ -71,7 +71,7 @@ end
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 """
-function optA(z, modd, w_0; a_min = 10^-10, a_max = 200)
+function optA(z, modd, w_0; a_min = 10^-10, a_max = 20)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
@@ -96,7 +96,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
+    tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
 
     @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
@@ -170,7 +170,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
         
         # Check the IR constraint (must bind)
-        U      = (1/ψ)*log(max(eps(),w_0)) + W_0[z_1_idx] 
+        U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_1_idx] 
         err1   = abs(U - ω_0)
         
         # Upate θ accordingly: note U is decreasing in θ (=> increasing in q)
@@ -186,7 +186,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             if (iter1 < max_iter1) 
                 q_0    = (q_lb + q_ub)/2
                 # exit loop if q is stuck near the bounds 
-                if max(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-4
+                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-4
                     # check if the  IR constraint is satisfied
                     #= if U > ω_0
                         break
