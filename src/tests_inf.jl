@@ -25,14 +25,13 @@ mod7 = solveModel(model(z_1 = median(zgrid), χ = 0.0))
 mod8 = solveModel(model(z_1 = median(zgrid), χ = 0.3))
 mod9 = solveModel(model(z_1 = median(zgrid), χ = 0.5))
 
-
  ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
 function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m
+    @unpack β, r, s, κ, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = m
 
     # Initialize default values and search parameters
-    ω_0    = procyclical ? ω[z0_idx] : ω # unemployment value at z0
+    ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z0
 
     # Initialize series
     az    = zeros(N_z)   # a(z|z_0)                         
@@ -48,19 +47,17 @@ function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 =
     
     # Look for a fixed point in Y_0
     @inbounds while err2 > tol2 && iter2 < max_iter2   
-        w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # time-0 earnings (constant)
+        w_0   = ψ*(Y_0[z_1_idx] - κ/q(θ_0)) # time-0 earnings (constant)
         @inbounds for (iz,z) in enumerate(zgrid)
             az[iz], yz[iz], flag[iz] = optA(z, m, w_0)
         end
         Y_1    = yz + β*(1-s)*P_z*Y_0    
         err2   = maximum(abs.(Y_0 - Y_1))  # Error       
-        α      = 0 #iter2 > 100 ? 0.75 : α 
-        Y_0    = α*Y_0 + (1-α)*Y_1
+        Y_0    = copy(Y_1)
         iter2 += 1
-        #println(Y_0[z0_idx])
     end
 
-    w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # time-0 earnings (constant)
+    w_0   = ψ*(Y_0[z_1_idx] - κ/q(θ_0)) # time-0 earnings (constant)
 
     # Solve recursively for LHS of IR constraint
     err3   = 10
@@ -70,16 +67,14 @@ function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 =
     @inbounds while err3 > tol3 && iter3 < max_iter3
         W_1  = flow + P_z*(β*(1-s)*W_0 + β*s*ω)
         err3 = maximum(abs.(W_1 - W_0))
-        α      = 0 #iter3 > 100 ? 0.75 : α 
-        W_0    = α*W_0 + (1-α)*W_1
-        #println(W_0[z0_idx])
+        W_0    = copy(W_1)
         iter3 +=1
     end
 
     # Check IR constraint (must bind)
-    IR_lhs = (1/ψ)*log(w_0) + W_0[z0_idx] 
+    IR_lhs = (1/ψ)*log(w_0) + W_0[z_1_idx] 
 
-    return (Y = Y_0[z0_idx], V = IR_lhs, ω_0 = ω_0, w_0 = w_0)
+    return (Y = Y_0[z_1_idx], V = IR_lhs, ω_0 = ω_0, w_0 = w_0)
 end
 
 #= plot to see how present value for worker, output, and w0 change with θ
@@ -97,8 +92,8 @@ w0    = [modd[i].w_0 for i = 1:length(tgrid)]
 
 p1 = plot(tgrid, Y , ylabel=L"Y_0", xlabel=L"\theta_0", label="")
 
-@unpack ι, κ = model()
-qq(x) = κ*(1 + x^ ι)^(1/ι)
+@unpack q, κ = model()
+qq(x) = κ*q(x)
 p2 = plot(qq, minimum(tgrid),maximum(tgrid), ylabel=L"\kappa/q(\theta_0)",xlabel=L"\theta_0",label="")
 
 p3 = plot(tgrid, V , label=L"V", legend=true)
