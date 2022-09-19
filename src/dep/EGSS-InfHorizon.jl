@@ -186,7 +186,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             if (iter1 < max_iter1) 
                 q_0    = (q_lb + q_ub)/2
                 # exit loop if q is stuck near the bounds 
-                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-4
+                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-5
                     # check if the  IR constraint is satisfied
                     #= if U > ω_0
                         break
