@@ -214,8 +214,8 @@ hline!([-1], label=L"\underbar{\chi}")
 hline!([1],label=L"\bar{\chi}")
  
 ## playing around with the matching function
-q1(θ,ι)  = 1/(1 + θ^ι)^(1/ι)  
-q2(θ)    =  max(min(1.355*θ^(-0.72),1),0)
+q1(θ,ι)  = 1/(1 + θ^ι)^(1/ι)               # h&m mf
+q2(θ)    =  max(min(1.355*θ^(-0.72),1),0) # shimer mf
 
 plot(x->q1(x,1),0,5)
 plot!(x->q1(x,2),0,5)
@@ -224,6 +224,18 @@ plot!(x->q1(x,4),0,5)
 plot!(x->q1(x,5),0,5)
 plot!(q2,0,5)
 ylabel!(L"q(\theta)")
+xlabel!(L"\theta")
+
+f1(θ,ι)  = 1/(1 + θ^-ι)^(1/ι)               # h&m mf
+f2(θ)    = max(min(1.355*θ^(1-0.72),1),0) # shimer mf
+
+plot(x->f1(x,1),0,5)
+plot!(x->f1(x,2),0,5)
+plot!(x->f1(x,3),0,5)
+plot!(x->f1(x,4),0,5)
+plot!(x->f1(x,5),0,5)
+plot!(f2,0,5)
+ylabel!(L"f(\theta)")
 xlabel!(L"\theta")
 
 function derivNumerical1(x,ι)

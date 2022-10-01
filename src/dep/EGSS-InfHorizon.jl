@@ -1,5 +1,5 @@
 #= Solve the infinite horizon dynamic EGSS model. 
-Quarterly calibration, no savings. =#
+Monthly calibration, no savings. =#
 
 """
 Set up the dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
@@ -25,10 +25,13 @@ z_1  = initial prod. (= z_ss by default)
 
 procyclical == (procyclical unemployment benefit)
 """ 
-#ρ =  0.97 (quarterly - linear time trend)   # ι = 1.25 (PNZ = monthly)
-#σ_ϵ = 0.008 (quarterly - linear time trend) # κ =  0.213 (Shimer), s = 0.1 (Shimer)
+#=
+Quarterly:
 function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
+=#
+function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 1.25, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
+    ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.1, γ = 0.695, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = false)
 
     # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -144,7 +147,6 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             end
             Y_1    = yz + β*(1-s)*P_z*Y_0    
             err2   = maximum(abs.(Y_0 - Y_1))  # Error       
-            #α     = iter2 > 100 ? 0.75 : α 
             if (err2 > tol2) 
                 iter2 += 1
                 if (iter2 < max_iter2) 
@@ -158,12 +160,12 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         iter3 = 1  
 
         # Solve recursively for the PV utility from the contract
-        W_0   = procyclical ?  copy(ω) : ω*ones(N_z) # initial guess
-        flow  = -(1/2ψ)*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω)
+        ω_vec = procyclical ?  copy(ω) : ω*ones(N_z)
+        W_0   = copy(ω_vec) # initial guess
+        flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω_vec)
         @inbounds while err3 > tol3 && iter3 <= max_iter3
             W_1  = flow + β*(1-s)*(P_z*W_0)
             err3 = maximum(abs.(W_1 - W_0))
-            #α   = iter3 > 100 ? 0.75 : α 
             W_0  = α*W_0 + (1-α)*W_1
             #println(W_0[z_1_idx])
             iter3 +=1
@@ -186,22 +188,20 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             if (iter1 < max_iter1) 
                 q_0    = (q_lb + q_ub)/2
                 # exit loop if q is stuck near the bounds 
-                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-5
+                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-6
                     # check if the  IR constraint is satisfied
-                    #= if U > ω_0
+                    if U > ω_0
                         break
                     else  
                         iter1 = max_iter1 + 1              
-                    end =#
-                    iter1 = max_iter1 + 1              
+                    end 
+                    #iter1 = max_iter1 + 1              
                 end
             end
         end
     end
 
-    θ = (q_0^(-ι) - 1)^(1/ι)
-
-    return (θ = θ, Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
+    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), exit_flag1 = (iter1 > max_iter1), exit_flag2 = (iter2 > max_iter2), exit_flag3 = (iter3 > max_iter3))
 end
