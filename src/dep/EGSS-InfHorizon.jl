@@ -6,22 +6,20 @@ Set up the dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
 η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
 and y_t = z_t(a_t + η_t).
 β    = discount factor
-r    = interest rate
 s    = exogenous separation rate
 ι    = matching elasticity
 κ    = vacancy-posting cost
 ω    = worker's PV from unemployment (infinite horizon)
 χ    = prop. of unemp benefit to z / actual unemp benefit
-γ    = intercept for unemp benefit w/ procyclical benefit
-z_ss = steady state of productivity (this is a definition)
+γ    = intercept for unemp benefit w / procyclical benefit
+z_ss = mean productivity (this is just a definition)
 z_0  = value of initial z; MUST BE ON ZGRID.
 σ_η  = st dev of η distribution
-μ_z  = unconditional mean of log prod. process (= log(z_ss) by default)
-z_1  = initial prod. (= z_ss by default)
+z_1  = initial prod. (= log(z_ss) by default)
 ρ    = persistence of log prod. process
-σ_ϵ  = variance of innovation in log prod. process
+σ_ϵ  = variance of noise in log prod. process
 ε    = Frisch elasticity: disutility of effort
-ψ    = pass-through parameters
+ψ    = pass-through parameter
 
 procyclical == (procyclical unemployment benefit)
 """ 
@@ -29,9 +27,12 @@ procyclical == (procyclical unemployment benefit)
 Quarterly:
 function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
+Quarterly->monthly
+ρ=0.87^(1/3)
+sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
 =#
-function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 1.25, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
-    ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.1, γ = 0.695, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = false)
+function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
+    ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.1, γ = 0.66, z_1 = z_ss, N_z = 11, procyclical = false)
 
     # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -40,13 +41,13 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 1.25, ε = 0.5, σ_
     h(a)    = (a^(1 + 1/ε))/(1 + 1/ε)               # disutility from effort  
     u(c, a) = u(c) - h(a)                           # utility function
     hp(a)   = a^(1/ε)                               # h'(a)
-    r       = 1/β -1                                # interest rate        
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
-    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)        # discretized logz grid & transition probabilties
-    zgrid     = exp.(logz)                           # actual productivity grid
-    z_1_idx   = findfirst(isapprox(z_1), zgrid)      # index of z0 on zgrid
+    μ_z       = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))
+    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)                    # discretized logz grid & transition probabilties
+    zgrid     = exp.(logz)                                       # actual productivity grid
+    z_1_idx   = findfirst(isapprox(z_1, atol = 0.0001), zgrid)   # index of z0 on zgrid
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -66,8 +67,8 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 1.25, ε = 0.5, σ_
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
-    return (β = β, r = r, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
-    ω = ω, μ_z = μ_z, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
+    return (β = β, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
+    ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
     z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
 end
 
@@ -91,7 +92,7 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 20)
             a_flag  = 1
         end
     end
-    y      = a*z # Expectation of y_t over η_t (given z_t)
+    y      = a*z # Expectation of y_t = z_t*(a_t+ η_t) over η_t (given z_t)
     return a, y, a_flag
 end
 
@@ -101,7 +102,7 @@ Solve the infinite horizon EGSS model using a bisection search on θ.
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
 
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
+    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
     # set tolerance parameters for outermost loop
     err1  = 10

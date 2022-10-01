@@ -172,29 +172,10 @@ ylabel!(p1,L"\theta")
 xlabel!(p1,L"\gamma")
 
 ## Check unemployment value -- functional form for ξ from John's Isomorphism doc
-@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u, β = model()
-ξ(z) = exp(γ)*(z/z_ss)^χ
+@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u, β, ξ = model(procyclical=true)
 
-function unemploymentValueCheck(β, ξ, u, zgrid, P_z; tol = 10^-10, max_iter = 5000)
-    
-    N_z    = length(zgrid)
-    v0_new = zeros(N_z)
-    v0     = u.(ξ.(zgrid))
-    iter   = 1
-    err    = 10
-
-    # solve via simple value function iteration
-    @inbounds while err > tol && iter < max_iter
-        v0_new = u.(ξ.(zgrid)) + β*P_z*v0
-        err    = maximum(abs.(v0_new - v0))
-        v0     = copy(v0_new)
-        iter   +=1
-    end
-    return (v0 = v0, err = err, iter = iter) 
-end
-
-v0       = unemploymentValueCheck(β, ξ, u, zgrid, P_z).v0
-A        = (γ - χ*log(z_ss))/(1-β)
+v0       = unemploymentValue(β, ξ, u, zgrid, P_z).v0
+A        = (log(γ) - χ*log(z_ss))/(1-β)
 B        = χ/(1-β*ρ)
 v0_check = A .+ B*log.(zgrid)
 
@@ -212,7 +193,8 @@ plot!(1 .- log(0.3)./log.(zgrid),label=L"\gamma =0.3")
 plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
 hline!([-1], label=L"\underbar{\chi}")
 hline!([1],label=L"\bar{\chi}")
- 
+
+#=
 ## playing around with the matching function
 q1(θ,ι)  = 1/(1 + θ^ι)^(1/ι)               # h&m mf
 q2(θ)    =  max(min(1.355*θ^(-0.72),1),0) # shimer mf
@@ -254,3 +236,4 @@ plot!(x->derivNumerical1(x,3),0,5)
 plot!(x->derivNumerical1(x,4),0,5)
 plot!(x->derivNumerical1(x,5),0,5)
 plot!(derivNumerical2,0,5)
+=#
