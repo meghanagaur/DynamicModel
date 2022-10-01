@@ -32,7 +32,7 @@ Quarterly->monthly
 sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
 =#
 function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
-    ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.1, γ = 0.66, z_1 = z_ss, N_z = 11, procyclical = false)
+    ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.66, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -53,10 +53,12 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_�
     ψ    = 1 - β*(1-s)
 
     # Unemployment benefit given aggregate state: (z) 
-    if procyclical == true
-        ξ(z) = (γ)*(z/z_ss)^χ 
-    elseif procyclical == false
+    if isapprox(χ,0) 
+        procyclical = false
         ξ    = γ
+    else
+        procyclical = true
+        ξ(z) = (γ)*(z/z_ss)^χ 
     end
 
     # PV of unemp = PV of utility from consuming unemployment benefit forever
