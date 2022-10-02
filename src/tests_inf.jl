@@ -25,94 +25,95 @@ mod7 = solveModel(model(z_1 = median(zgrid), χ = 0.0))
 mod8 = solveModel(model(z_1 = median(zgrid), χ = 0.3))
 mod9 = solveModel(model(z_1 = median(zgrid), χ = 0.5))
 
-
- ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
-function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
+## fix q and look at how intermediates (Y, V, W) vary WITHOUT savings
+function partial(q_0; modd = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
-    @unpack β, r, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z0, z0_idx = m
+    #modd=model()
+    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1, z_1_idx = modd
 
     # Initialize default values and search parameters
-    ω_0    = procyclical ? ω[z0_idx] : ω # unemployment value at z0
+    ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_1
+    α      = 0               # dampening parameter
+    Y_0    = 0               # initalize Y for export
+    U      = 0               # initalize worker's EU from contract for export
+    w_0    = 0               # initialize initial wage constant for export
 
     # Initialize series
-    az    = zeros(N_z)   # a(z|z_0)                         
-    yz    = zeros(N_z)   # a(z|z_0)                         
-    flag  = zeros(N_z)   # a(z|z_0)                         
-
-    # Look for a fixed point in θ_0
-    err2   = 10
-    iter2  = 1      
-    Y_lb   = κ/q(θ_0)                    # lower search bound
-    Y_ub   = 50*κ/q(θ_0)                 # upper search bound
-    Y_0    = ones(N_z)*(Y_lb + Y_ub)/2   # initial guess for Y(z)
+    az     = zeros(N_z)   # a(z|z_1)                         
+    yz     = zeros(N_z)   # y(z|z_1)                         
+    a_flag = zeros(N_z)   # flag for a(z|z_1)   
     
-    # Look for a fixed point in Y_0
-    @inbounds while err2 > tol2 && iter2 < max_iter2   
-        w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # time-0 earnings (constant)
+    # Look for a fixed point in Y(z | z_1), ∀ z    
+    err2   = 10
+    iter2  = 1 
+    Y_0    = ones(N_z)*(50*κ/q_0)   # initial guess for Y(z | z_1)
+    
+    @inbounds while err2 > tol2 && iter2 <= max_iter2   
+        w_0  = ψ*(Y_0[z_1_idx] - κ/q_0) # constant for wage difference equation
+        # Solve for optimal effort a(z | z_1)
         @inbounds for (iz,z) in enumerate(zgrid)
-            az[iz], yz[iz], flag[iz] = optA(z, m, w_0)
+            az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0)
         end
         Y_1    = yz + β*(1-s)*P_z*Y_0    
         err2   = maximum(abs.(Y_0 - Y_1))  # Error       
-        α      = 0 #iter2 > 100 ? 0.75 : α 
-        Y_0    = α*Y_0 + (1-α)*Y_1
-        iter2 += 1
-        #println(Y_0[z0_idx])
+        if (err2 > tol2) 
+            iter2 += 1
+            if (iter2 < max_iter2) 
+                Y_0    = α*Y_0 + (1-α)*Y_1 
+            end
+        end
+        #println(Y_0[z_1_idx])
     end
 
-    w_0   = ψ*(Y_0[z0_idx] - κ/q(θ_0)) # time-0 earnings (constant)
+    err3  = 10
+    iter3 = 1  
 
-    # Solve recursively for LHS of IR constraint
-    err3   = 10
-    iter3  = 1  
-    W_0    = copy(ω)
-    flow   = -(1/2ψ)*(ψ*hp.(az)σ_η).^2 - h.(az)
-    @inbounds while err3 > tol3 && iter3 < max_iter3
-        W_1  = flow + P_z*(β*(1-s)*W_0 + β*s*ω)
+    # Solve recursively for the PV utility from the contract
+    ω_vec = procyclical ?  copy(ω) : ω*ones(N_z)
+    W_0   = copy(ω_vec) # initial guess
+    flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω_vec)
+    @inbounds while err3 > tol3 && iter3 <= max_iter3
+        W_1  = flow + β*(1-s)*(P_z*W_0)
         err3 = maximum(abs.(W_1 - W_0))
-        α      = 0 #iter3 > 100 ? 0.75 : α 
-        W_0    = α*W_0 + (1-α)*W_1
-        #println(W_0[z0_idx])
+        W_0  = α*W_0 + (1-α)*W_1
+        #println(W_0[z_1_idx])
         iter3 +=1
     end
+      
+    # Check the IR constraint (must bind)
+    U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_1_idx] 
 
     # Check IR constraint (must bind)
-    IR_lhs = (1/ψ)*log(w_0) + W_0[z0_idx] 
-
-    return (Y = Y_0[z0_idx], V = IR_lhs, ω_0 = ω_0, w_0 = w_0)
+    return (Y = Y_0[z_1_idx], V = U, ω_0 = ω_0, w_0 = w_0)
 end
 
 #= plot to see how present value for worker, output, and w0 change with θ
 helpful for checking how we should update theta for convergence =#
-tgrid = collect(0.0:0.025:3)
+qgrid = collect(0.01:0.025:1)
 modd  = OrderedDict{Int64, Any}()
-Threads.@threads for i = 1:length(tgrid)
-    modd[i] = partial.(tgrid[i])
+Threads.@threads for i = 1:length(qgrid)
+    modd[i] = partial.(qgrid[i])
 end
 
-Y     = [modd[i].Y for i = 1:length(tgrid)]
-V     = [modd[i].V for i = 1:length(tgrid)]
-ω0    = [modd[i].ω_0 for i = 1:length(tgrid)]
-w0    = [modd[i].w_0 for i = 1:length(tgrid)]
+Y     = [modd[i].Y for i = 1:length(qgrid)]
+V     = [modd[i].V for i = 1:length(qgrid)]
+ω0    = [modd[i].ω_0 for i = 1:length(qgrid)]
+w0    = [modd[i].w_0 for i = 1:length(qgrid)]
 
-p1 = plot(tgrid, Y , ylabel=L"Y_0", xlabel=L"\theta_0", label="")
+p1 = plot(qgrid, Y , ylabel=L"Y_0", xlabel=L"q", label="")
 
-@unpack ι, κ = model()
-qq(x) = κ*(1 + x^ ι)^(1/ι)
-p2 = plot(qq, minimum(tgrid),maximum(tgrid), ylabel=L"\kappa/q(\theta_0)",xlabel=L"\theta_0",label="")
+p2 = plot(qgrid, V , label=L"V", legend=true)
+plot!(p2, qgrid, ω0, label=L"\omega_0",xlabel=L"q")
 
-p3 = plot(tgrid, V , label=L"V", legend=true)
-plot!(p3, tgrid, ω0, label=L"\omega_0",xlabel=L"\theta_0")
+p3 = plot(qgrid, w0 , ylabel=L"w_0", xlabel=L"q", legend=false)
 
-p4 = plot(tgrid, w0 , ylabel=L"w_0", xlabel=L"\theta_0", legend=false)
-
-plot(p1, p2, p3, p4,  layout = (2, 2))
+plot(p1, p2, p3,  layout = (3, 1))
 #savefig(dir*"vary_theta.png")
 
 ## determine theta, as unemployment benefit scale χ varies
 ## NOTE: this depends on z0
 function tightness(bb)
-    sol = solveModel(model(χ = bb, z_1 = model().zgrid[10]),noisy=false)
+    sol = solveModel(model(γ = bb),noisy=false)
     return (θ = sol.θ, w_0 = sol.w_0)
 end
 
@@ -136,7 +137,7 @@ xlabel!(p2,L"b")
 plot(p1, p2, layout = (2, 1),legend=:topleft)
 
 ## play around with κ
-kgrid = 0.2:0.05:0.5
+kgrid = 0.2:0.05:0.7
 t_k   = zeros(size(kgrid))
 
 Threads.@threads for i = 1:length(kgrid)
@@ -148,7 +149,7 @@ ylabel!(p1,L"\theta")
 xlabel!(p1,L"\kappa")
 
 ## play around with ε
-egrid = 0:0.1:1
+egrid = 0:0.1:3
 t_e   = zeros(size(egrid))
 
 Threads.@threads for i = 1:length(egrid)

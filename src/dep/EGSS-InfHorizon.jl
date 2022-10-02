@@ -32,7 +32,7 @@ Quarterly->monthly
 sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
 =#
 function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
-    ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.66, z_1 = z_ss, N_z = 11)
+    ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.66, z_1 = z_ss, N_z = 17)
 
     # Basic parameterization
     q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
@@ -53,9 +53,8 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_�
     ψ    = 1 - β*(1-s)
 
     # Unemployment benefit given aggregate state: (z) 
-    if isapprox(χ,0) 
+    if isapprox(χ, 0) 
         procyclical = false
-        ξ    = γ
     else
         procyclical = true
         ξ(z) = (γ)*(z/z_ss)^χ 
@@ -63,7 +62,7 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_�
 
     # PV of unemp = PV of utility from consuming unemployment benefit forever
     if procyclical == false
-        ω = log(ξ)/(1-β) # scalar
+        ω = log(γ)/(1-β) # scalar
     elseif procyclical == true
         #println("Solving for value of unemployment...")
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
@@ -71,13 +70,13 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_�
     
     return (β = β, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
     ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
-    z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, ξ = ξ, χ = χ, γ = γ, procyclical = procyclical)
+    z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 """
-function optA(z, modd, w_0; a_min = 10^-10, a_max = 20)
+function optA(z, modd, w_0; a_min = 10^-10, a_max = 5)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
