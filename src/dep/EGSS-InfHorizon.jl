@@ -28,7 +28,7 @@ Quarterly:
 function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
     ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
 Quarterly->monthly
-ρ=0.87^(1/3)
+ρ = 0.87^(1/3)
 sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
 =#
 function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
@@ -191,7 +191,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             if (iter1 < max_iter1) 
                 q_0    = (q_lb + q_ub)/2
                 # exit loop if q is stuck near the bounds 
-                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-6
+                if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) <= 10^-6
                     # check if the  IR constraint is satisfied
                     if U > ω_0
                         break
