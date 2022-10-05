@@ -158,10 +158,9 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             #println(Y_0[z_1_idx])
         end
 
+        # Solve recursively for the PV utility from the contract
         err3  = 10
         iter3 = 1  
-
-        # Solve recursively for the PV utility from the contract
         ω_vec = procyclical ?  copy(ω) : ω*ones(N_z)
         W_0   = copy(ω_vec) # initial guess
         flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω_vec)
