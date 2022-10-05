@@ -32,18 +32,6 @@ Quarterly->monthly
 ρ = 0.87^(1/3)
 sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
 =#
-<<<<<<< HEAD
-function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ι = 0.7, ε = 0.5, σ_η = 0.01, z_ss = 1.0,
-    ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.66, z_1 = z_ss, N_z = 17)
-
-    # Basic parameterization
-    q(θ)    = 1/(1 + θ^ι)^(1/ι)                     # vacancy-filling rate
-    f(θ)    = 1/(1 + θ^-ι)^(1/ι)                    # job-filling rate
-    u(c)    = log(max(c, eps()))                    # utility from consumption                
-    h(a)    = (a^(1 + 1/ε))/(1 + 1/ε)               # disutility from effort  
-    u(c, a) = u(c) - h(a)                           # utility function
-    hp(a)   = a^(1/ε)                               # h'(a)
-=======
 function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ε = 0.5, σ_η = 0.01, z_ss = 1.0, μ = 0.42,
     α = 0.72, hbar = 1, ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.66, z_1 = z_ss, N_z = 17)
 
@@ -54,7 +42,6 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ε = 0.5, σ_η = 0.01, 
     h(a)    = hbar*(a^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
     u(c, a) = u(c) - h(a)                   # utility function
     hp(a)   = hbar*a^(1/ε)                  # h'(a)
->>>>>>> cobbdouglas_mf
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
@@ -82,13 +69,8 @@ function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ε = 0.5, σ_η = 0.01, 
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
-<<<<<<< HEAD
-    return (β = β, s = s, κ = κ, ι = ι, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss,
-    ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
-=======
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ = μ,
      α = α, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
->>>>>>> cobbdouglas_mf
     z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
@@ -186,11 +168,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         @inbounds while err3 > tol3 && iter3 <= max_iter3
             W_1  = flow + β*(1-s)*(P_z*W_0)
             err3 = maximum(abs.(W_1 - W_0))
-<<<<<<< HEAD
-            W_0  = α*W_0 + (1-α)*W_1
-=======
             W_0  = l*W_0 + (1-l)*W_1
->>>>>>> cobbdouglas_mf
             #println(W_0[z_1_idx])
             iter3 +=1
         end
@@ -225,11 +203,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
     end
 
-<<<<<<< HEAD
-    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
-=======
     return (θ = (μ/q_0)^(1/α), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, 
->>>>>>> cobbdouglas_mf
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), exit_flag1 = (iter1 > max_iter1), exit_flag2 = (iter2 > max_iter2), exit_flag3 = (iter3 > max_iter3))
 end

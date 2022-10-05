@@ -25,35 +25,24 @@ mod7 = solveModel(model(z_1 = median(zgrid), χ = 0.0))
 mod8 = solveModel(model(z_1 = median(zgrid), χ = 0.3))
 mod9 = solveModel(model(z_1 = median(zgrid), χ = 0.5))
 
-<<<<<<< HEAD
 ## fix q and look at how intermediates (Y, V, W) vary WITHOUT savings
 function partial(q_0; modd = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
  
     #modd=model()
-    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1, z_1_idx = modd
+    @unpack β, s, κ, α, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1, z_1_idx = modd
 
     # Initialize default values and search parameters
     ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_1
-    α      = 0               # dampening parameter
+    l      = 0               # dampening parameter
     Y_0    = 0               # initalize Y for export
     U      = 0               # initalize worker's EU from contract for export
     w_0    = 0               # initialize initial wage constant for export
-=======
- ## fix θ and look at how intermediates (Y, V, W) vary WITHOUT savings
-function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 = 1000, tol3 = 10^-8)
- 
-    @unpack β, r, s, κ, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = m
-
-    # Initialize default values and search parameters
-    ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z0
->>>>>>> cobbdouglas_mf
 
     # Initialize series
     az     = zeros(N_z)   # a(z|z_1)                         
     yz     = zeros(N_z)   # y(z|z_1)                         
     a_flag = zeros(N_z)   # flag for a(z|z_1)   
     
-<<<<<<< HEAD
     # Look for a fixed point in Y(z | z_1), ∀ z    
     err2   = 10
     iter2  = 1 
@@ -62,21 +51,15 @@ function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 =
     @inbounds while err2 > tol2 && iter2 <= max_iter2   
         w_0  = ψ*(Y_0[z_1_idx] - κ/q_0) # constant for wage difference equation
         # Solve for optimal effort a(z | z_1)
-=======
-    # Look for a fixed point in Y_0
-    @inbounds while err2 > tol2 && iter2 < max_iter2   
-        w_0   = ψ*(Y_0[z_1_idx] - κ/q(θ_0)) # time-0 earnings (constant)
->>>>>>> cobbdouglas_mf
         @inbounds for (iz,z) in enumerate(zgrid)
             az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0)
         end
         Y_1    = yz + β*(1-s)*P_z*Y_0    
         err2   = maximum(abs.(Y_0 - Y_1))  # Error       
-<<<<<<< HEAD
         if (err2 > tol2) 
             iter2 += 1
             if (iter2 < max_iter2) 
-                Y_0    = α*Y_0 + (1-α)*Y_1 
+                Y_0    = l*Y_0 + (1-l)*Y_1 
             end
         end
         #println(Y_0[z_1_idx])
@@ -84,13 +67,6 @@ function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 =
 
     err3  = 10
     iter3 = 1  
-=======
-        Y_0    = copy(Y_1)
-        iter2 += 1
-    end
-
-    w_0   = ψ*(Y_0[z_1_idx] - κ/q(θ_0)) # time-0 earnings (constant)
->>>>>>> cobbdouglas_mf
 
     # Solve recursively for the PV utility from the contract
     ω_vec = procyclical ?  copy(ω) : ω*ones(N_z)
@@ -99,12 +75,8 @@ function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 =
     @inbounds while err3 > tol3 && iter3 <= max_iter3
         W_1  = flow + β*(1-s)*(P_z*W_0)
         err3 = maximum(abs.(W_1 - W_0))
-<<<<<<< HEAD
-        W_0  = α*W_0 + (1-α)*W_1
+        W_0  = l*W_0 + (1-l)*W_1
         #println(W_0[z_1_idx])
-=======
-        W_0    = copy(W_1)
->>>>>>> cobbdouglas_mf
         iter3 +=1
     end
       
@@ -112,13 +84,7 @@ function partial(θ_0; m = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3 =
     U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_1_idx] 
 
     # Check IR constraint (must bind)
-<<<<<<< HEAD
     return (Y = Y_0[z_1_idx], V = U, ω_0 = ω_0, w_0 = w_0)
-=======
-    IR_lhs = (1/ψ)*log(w_0) + W_0[z_1_idx] 
-
-    return (Y = Y_0[z_1_idx], V = IR_lhs, ω_0 = ω_0, w_0 = w_0)
->>>>>>> cobbdouglas_mf
 end
 
 #= plot to see how present value for worker, output, and w0 change with θ
@@ -136,14 +102,8 @@ w0    = [modd[i].w_0 for i = 1:length(qgrid)]
 
 p1 = plot(qgrid, Y , ylabel=L"Y_0", xlabel=L"q", label="")
 
-<<<<<<< HEAD
 p2 = plot(qgrid, V , label=L"V", legend=true)
 plot!(p2, qgrid, ω0, label=L"\omega_0",xlabel=L"q")
-=======
-@unpack q, κ = model()
-qq(x) = κ*q(x)
-p2 = plot(qq, minimum(tgrid),maximum(tgrid), ylabel=L"\kappa/q(\theta_0)",xlabel=L"\theta_0",label="")
->>>>>>> cobbdouglas_mf
 
 p3 = plot(qgrid, w0 , ylabel=L"w_0", xlabel=L"q", legend=false)
 
