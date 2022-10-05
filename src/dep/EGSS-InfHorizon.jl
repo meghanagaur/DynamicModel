@@ -8,7 +8,8 @@ and y_t = z_t(a_t + η_t).
 β    = discount factor
 r    = interest rate
 s    = exogenous separation rate
-ι    = matching elasticity
+α    = elasticity of matching function 
+μ    = matching function efficiency
 κ    = vacancy-posting cost
 ω    = worker's PV from unemployment (infinite horizon)
 χ    = prop. of unemp benefit to z / actual unemp benefit
@@ -78,7 +79,7 @@ end
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 """
-function optA(z, modd, w_0; a_min = 10^-10, a_max = 20)
+function optA(z, modd, w_0; a_min = 10^-10, a_max = 5)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
@@ -95,7 +96,7 @@ function optA(z, modd, w_0; a_min = 10^-10, a_max = 20)
             a_flag  = 1
         end
     end
-    y      = a*z # Expectation of y_t over η_t (given z_t)
+    y      = a*z # Expectation of y_t = z_t*(a_t+ η_t) over η_t (given z_t)
     return a, y, a_flag
 end
 
@@ -118,9 +119,9 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
 
     # Initialize default values and search parameters
     ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_1
-    q_lb   = q_lb_0          # lower search bound for θ
-    q_ub   = q_ub_0          # upper search bound for θ
-    q_0    = (q_lb + q_ub)/2 # initial guess for θ
+    q_lb   = q_lb_0          # lower search bound for q
+    q_ub   = q_ub_0          # upper search bound for q
+    q_0    = (q_lb + q_ub)/2 # initial guess for q
     l      = 0               # dampening parameter
     Y_0    = 0               # initalize Y for export
     U      = 0               # initalize worker's EU from contract for export
