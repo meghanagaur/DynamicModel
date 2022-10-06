@@ -32,7 +32,7 @@ Quarterly->monthly
 ρ = 0.87^(1/3)
 sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
 =#
-function model(; β = 0.99^(1/3), s = 0.03, κ = 0.213, ε = 0.5, σ_η = 0.01, z_ss = 1.0, μ = 0.42,
+function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ε = 0.3, σ_η = 0.5, z_ss = 1.0, μ = 0.42,
     α = 0.72, hbar = 1, ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.7, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
@@ -70,7 +70,7 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.213, ε = 0.5, σ_η = 0.01, 
     end
     
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ = μ,
-     α = α, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
+     α = α, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
     z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
@@ -102,7 +102,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
+    tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 2.0)
 
     @unpack β, s, κ, μ, α, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
