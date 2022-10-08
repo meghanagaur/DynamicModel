@@ -30,22 +30,22 @@ function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 
     ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
 Quarterly->monthly
 ρ = 0.87^(1/3)
-sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;]))
+sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 =#
 function model(; β = 0.99^(1/3), s = 0.035, κ = 0.45, ε = 0.3, σ_η = 0.5, z_ss = 1.0, μ = 0.42,
-    α = 0.72, hbar = 1, ρ =  0.87^(1/3), σ_ϵ = 0.01, χ = 0.0, γ = 0.7, z_1 = z_ss, N_z = 11)
+    α = 0.72, hbar = 1, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.7, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
     q(θ)    = μ*θ^(-α)                      # vacancy-filling rate
     f(θ)    = μ*θ^(1-α)                     # job-filling rate
     u(c)    = log(max(c, eps()))            # utility from consumption                
     h(a)    = hbar*(a^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
-    u(c, a) = u(c) - h(a)                   # utility function
     hp(a)   = hbar*a^(1/ε)                  # h'(a)
+    u(c, a) = u(c) - h(a)                   # overall utility function
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
-    μ_z       = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))
+    μ_z       = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))            # normalize E[z_t] = 1
     logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)                    # discretized logz grid & transition probabilties
     zgrid     = exp.(logz)                                       # actual productivity grid
     z_1_idx   = findfirst(isapprox(z_1, atol = 0.0001), zgrid)   # index of z0 on zgrid
@@ -76,19 +76,21 @@ end
 
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
+Note: a_min > 0 to allow for numerical error.
 """
-function optA(z, modd, w_0; a_min = 10^-10, a_max = 5)
+function optA(z, modd, w_0; a_min = 10^-10, a_max = 10)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
         a_flag = 0
         #aa2 = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
         #@assert(isapprox(aa,aa2[1]))
-    else # solve for the positive root. note: a_min > 0 (to allow for numerical error)
+    else 
+        # solve for positive root.
         aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
         if ~isempty(aa)
             a      = aa[1] 
-            a_flag = max( ((z*aa[1]/w_0 - (ψ/ε)*(hp(aa[1])*σ_η)^2) < 0), (length(aa) > 1) )
+            a_flag = max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) 
         elseif isempty(aa)
             a       = 0
             a_flag  = 1
@@ -174,7 +176,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
         
         # Check the IR constraint (must bind)
-        U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_1_idx] 
+        U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_1_idx] # nudge w_0 to avoid runtime error
         err1   = abs(U - ω_0)
         
         # Upate θ accordingly: note U is decreasing in θ (=> increasing in q)

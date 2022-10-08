@@ -84,12 +84,12 @@ function partial(q_0; modd = model(), max_iter2 = 1000, tol2 = 10^-8,  max_iter3
     U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_1_idx] 
 
     # Check IR constraint (must bind)
-    return (Y = Y_0[z_1_idx], V = U, ω_0 = ω_0, w_0 = w_0)
+    return (Y = Y_0[z_1_idx], V = U, ω_0 = ω_0, w_0 = w_0, a = az[z_1_idx])
 end
 
 #= plot to see how present value for worker, output, and w0 change with θ
 helpful for checking how we should update theta for convergence =#
-qgrid = collect(0.01:0.025:1)
+qgrid = collect(0.1:0.025:1)
 modd  = OrderedDict{Int64, Any}()
 Threads.@threads for i = 1:length(qgrid)
     modd[i] = partial.(qgrid[i])
@@ -99,25 +99,26 @@ Y     = [modd[i].Y for i = 1:length(qgrid)]
 V     = [modd[i].V for i = 1:length(qgrid)]
 ω0    = [modd[i].ω_0 for i = 1:length(qgrid)]
 w0    = [modd[i].w_0 for i = 1:length(qgrid)]
+a     = [modd[i].a for i = 1:length(qgrid)]
 
-p1 = plot(qgrid, Y , ylabel=L"Y_0", xlabel=L"q", label="")
-
+p1 = plot(qgrid, Y, ylabel=L"Y_0", xlabel=L"q", label="")
 p2 = plot(qgrid, V , label=L"V", legend=true)
 plot!(p2, qgrid, ω0, label=L"\omega_0",xlabel=L"q")
 
 p3 = plot(qgrid, w0 , ylabel=L"w_0", xlabel=L"q", legend=false)
 
-plot(p1, p2, p3,  layout = (3, 1))
+p4 = plot(qgrid, a , ylabel=L"a(z_1)", xlabel=L"q", legend=false)
+
+plot(p1, p2, p3, p4,  layout = (2, 2))
 #savefig(dir*"vary_theta.png")
 
-## determine theta, as unemployment benefit scale χ varies
-## NOTE: this depends on z0
+## determine theta, as unemployment benefit varies
 function tightness(bb)
     sol = solveModel(model(γ = bb),noisy=false)
     return (θ = sol.θ, w_0 = sol.w_0)
 end
 
-bgrid = 0.6:0.05:0.7
+bgrid = 0.4:0.05:0.9
 t1    = zeros(size(bgrid))
 w01   = zeros(size(bgrid))
 
@@ -133,7 +134,7 @@ ylabel!(p1,L"\theta")
 xlabel!(p1,L"b")
 p2=plot(bgrid, w01, ylabel=L"\theta")
 ylabel!(p2,L"w_0")
-xlabel!(p2,L"b")
+xlabel!(p2,L"\gamma")
 plot(p1, p2, layout = (2, 1),legend=:topleft)
 
 ## play around with κ
@@ -149,7 +150,7 @@ ylabel!(p1,L"\theta")
 xlabel!(p1,L"\kappa")
 
 ## play around with ε
-egrid = 0:0.1:3
+egrid = 0.15:0.25:3
 t_e   = zeros(size(egrid))
 
 Threads.@threads for i = 1:length(egrid)
@@ -160,21 +161,21 @@ p1=plot(egrid, t_e, ylabel=L"\theta")
 ylabel!(p1,L"\theta")
 xlabel!(p1,L"\varepsilon")
 
-## play around with γ
-ggrid = 0.1:0.05:0.9
-t_g   = zeros(size(ggrid))
+## play around with χ
+cgrid = -1:0.05:1
+t_g   = zeros(size(cgrid))
 
-Threads.@threads for i = 1:length(ggrid)
-    t_g[i]  = solveModel(model(γ=ggrid[i]),noisy=false).θ
+Threads.@threads for i = 1:length(cgrid)
+    t_g[i]  = solveModel(model(χ = cgrid[i]),noisy=false).θ
  end
 
-p1=plot(ggrid, t_g, ylabel=L"\theta")
+p1=plot(cgrid, t_g, ylabel=L"\theta")
 ylabel!(p1,L"\theta")
-xlabel!(p1,L"\gamma")
+xlabel!(p1,L"\chi")
 
 ## Check unemployment value -- functional form for ξ from John's Isomorphism doc
-@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u, β, ξ = model(procyclical=true)
-
+@unpack χ, z_ss, γ, β, zgrid, ρ, P_z, u, β = model(χ=0.5)
+ξ(z)     = γ*z^χ
 v0       = unemploymentValue(β, ξ, u, zgrid, P_z).v0
 A        = (log(γ) - χ*log(z_ss))/(1-β)
 B        = χ/(1-β*ρ)
@@ -183,17 +184,25 @@ v0_check = A .+ B*log.(zgrid)
 maximum(abs.(v0-v0_check))
 
 ## check γ, χ bounds
-@unpack zgrid = model()
+@unpack zgrid = model(ρ=0.87, σ_ϵ=0.008)
 
 # plot all the γ
-plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
-plot!(1 .- log(0.66)./log.(zgrid),label=L"\gamma =0.66")
-plot!(1 .- log(0.3)./log.(zgrid),label=L"\gamma =0.3")
+plot(1 .- log(0.9)./log.(zgrid[7:end]),label=L"\gamma =0.9")
+plot!(1 .- log(0.66)./log.(zgrid[7:end]),label=L"\gamma =0.66")
+plot!(1 .- log(0.3)./log.(zgrid[7:end]),label=L"\gamma =0.3")
+
+plot(1 .- log(0.9)./log.(zgrid[1:5]),label=L"\gamma =0.9")
+plot!(1 .- log(0.66)./log.(zgrid[1:5]),label=L"\gamma =0.66")
+plot!(1 .- log(0.3)./log.(zgrid[1:5]),label=L"\gamma =0.3")
 
 # plot the log z bounds
-plot(1 .- log(0.9)./log.(zgrid),label=L"\gamma =0.9")
+plot(zgrid[1:5],1 .- log(0.9)./log.(zgrid[1:5]),label=L"\gamma =0.9")
 hline!([-1], label=L"\underbar{\chi}")
+
+plot(1 .- log(0.9)./log.(zgrid[7:end]),label=L"\gamma =0.9")
 hline!([1],label=L"\bar{\chi}")
+
+
 
 #=
 ## playing around with the matching function
