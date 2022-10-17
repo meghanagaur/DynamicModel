@@ -33,7 +33,7 @@ Quarterly->monthly
 sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.47, ε = 0.5, σ_η = 0.5, z_ss = 1.0, μ = 0.42,
-    α = 0.72, hbar = 1, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.7, z_1 = z_ss, N_z = 11)
+    α = 0.72, hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.7, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
     q(θ)    = μ*θ^(-α)                      # vacancy-filling rate
