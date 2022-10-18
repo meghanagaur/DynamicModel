@@ -36,9 +36,9 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.47, ε = 0.5, σ_η = 0.5, z_
     α = 0.72, hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.7, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
-    q(θ)    = μ*θ^(-α)                      # vacancy-filling rate
-    f(θ)    = μ*θ^(1-α)                     # job-filling rate
-    u(c)    = log(max(c, eps()))            # utility from consumption                
+    q(θ)    = μ*θ^(-α)                      # job-filling rate
+    f(θ)    = μ*θ^(1-α)                     # job-finding rate
+    u(c)    = log(max(c, 10^-6))            # utility from consumption                
     h(a)    = hbar*(a^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
     hp(a)   = hbar*a^(1/ε)                  # h'(a)
     u(c, a) = u(c) - h(a)                   # overall utility function
@@ -78,13 +78,11 @@ end
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error.
 """
-function optA(z, modd, w_0; a_min = 10^-10, a_max = 10)
+function optA(z, modd, w_0; a_min = 10^-12, a_max = 30)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
         a_flag = 0
-        #aa2 = find_zeros(x -> x - max(z*x/w_0 -  (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
-        #@assert(isapprox(aa,aa2[1]))
     else 
         # solve for positive root.
         aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
@@ -104,7 +102,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
+    tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 20.0)
 
     @unpack β, s, κ, μ, α, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
@@ -180,9 +178,9 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         err1   = abs(U - ω_0)
         
         # Upate θ accordingly: note U is decreasing in θ (=> increasing in q)
-        if U < ω_0 # increase q (decrease θ)
+        if U < ω_0              # increase q (decrease θ)
             q_lb  = copy(q_0)
-        elseif U > ω_0 # decrease q (increase θ)
+        elseif U > ω_0          # decrease q (increase θ)
             q_ub  = copy(q_0)
         end
 
@@ -191,7 +189,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             iter1 += 1
             if (iter1 < max_iter1) 
                 q_0    = (q_lb + q_ub)/2
-                # exit loop if q is stuck near the bounds 
+                # exit loop if q is stuck at the bounds 
                 if min(abs(q_0 - q_ub_0), abs(q_0 - q_lb_0)) < 10^-4
                     # check if the  IR constraint is satisfied
                     if U >= ω_0
@@ -199,7 +197,6 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
                     else  
                         iter1 = max_iter1 + 1              
                     end 
-                    #iter1 = max_iter1 + 1              
                 end
             end
         end
