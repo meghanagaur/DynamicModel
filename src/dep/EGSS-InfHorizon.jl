@@ -79,7 +79,7 @@ end
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error.
 """
-function optA(z, modd, w_0; a_min = 10^-12, a_max = 50)
+function optA(z, modd, w_0; a_min = 10^-12, a_max = 50.0)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
