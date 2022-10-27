@@ -206,13 +206,13 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
                 iter1  += 1
             end
         end
-        
+
     end
 
     # Record info on IR constraint
     flag_IR = (IR_err < 0)*(abs(IR_err) >= tol1)
 
-    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err, flag_IR = flag_IR,
+    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err*flag_IR, flag_IR = flag_IR,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), conv_flag1 = (iter1 > max_iter1), conv_flag2 = (iter2 > max_iter2), conv_flag3 = (iter3 > max_iter3))
 end
