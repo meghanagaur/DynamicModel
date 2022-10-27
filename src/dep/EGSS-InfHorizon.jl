@@ -85,7 +85,7 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 50.0)
         a      = (z/w_0)/(1 + ψ*σ_η^2)
         a_flag = 0
     else 
-        # solve for positive root.
+        # solve for positive root. nudge to avoid any runtime errors.
         aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max) 
         if ~isempty(aa)
             a      = aa[1] 
@@ -103,18 +103,18 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-6, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
+    tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
 
     @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
     # set tolerance parameters for outermost loop
-    err1  = 10
-    iter1 = 1
+    err1   = 10
+    iter1  = 1
     # initialize tolerance parameters for inner loops (for export)
-    err2  = 10
-    iter2 = 1
-    err3  = 10
-    iter3 = 1
+    err2   = 10
+    iter2  = 1
+    err3   = 10
+    iter3  = 1
     IR_err = 10
 
     # Initialize default values and search parameters
@@ -205,7 +205,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     end
     
     # Record info on IR constraint
-    flag_IR = (IR_err < 0)*(abs(IR_err) > tol1)
+    flag_IR = (IR_err < 0)*(abs(IR_err) >= 10^-6)
 
     return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err, flag_IR = flag_IR,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
