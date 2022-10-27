@@ -79,7 +79,7 @@ end
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error.
 """
-function optA(z, modd, w_0; a_min = 10^-12, a_max = 50.0)
+function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
@@ -194,18 +194,23 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         # Bisection
         IR_err = U - ω_0                            # check whether IR constraint holds
         q_1    = (q_lb + q_ub)/2                    # update q
-        err1   = min(abs(IR_err), abs(q_1 - q_0))   # compute convergence criterion
+        #err1   = min(abs(IR_err), abs(q_1 - q_0))   # compute convergence criterion
+        err1    = abs(IR_err)
 
         # export the accurate iter & q value
         if err1 > tol1
-            q_0     = α*q_0 + (1 - α)*q_1
-            iter1  += 1
+            if abs(q_1 - q_0) < 10^(-10)
+                break
+            else
+                q_0     = α*q_0 + (1 - α)*q_1
+                iter1  += 1
+            end
         end
 
     end
-    
+
     # Record info on IR constraint
-    flag_IR = (IR_err < 0)*(abs(IR_err) >= 10^-6)
+    flag_IR = (IR_err < 0)*(abs(IR_err) >= tol1)
 
     return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err, flag_IR = flag_IR,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
