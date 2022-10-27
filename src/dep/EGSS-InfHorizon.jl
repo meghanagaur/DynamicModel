@@ -199,14 +199,14 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
 
         # export the accurate iter & q value
         if err1 > tol1
-            if abs(q_1 - q_0) < 10^(-10)
+            if abs(q_1 - q_lb_0) < 10^(-10) || abs(q_1 - q_ub_0) < 10^(-10) 
                 break
             else
                 q_0     = α*q_0 + (1 - α)*q_1
                 iter1  += 1
             end
         end
-
+        
     end
 
     # Record info on IR constraint
