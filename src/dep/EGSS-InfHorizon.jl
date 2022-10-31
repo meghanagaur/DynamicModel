@@ -34,7 +34,7 @@ Quarterly -> monthly
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.7,
-    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, z_1 = z_ss, N_z = 11)
+    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, z_1 = z_ss, N_z = 7)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)              # job-filling rate
