@@ -33,7 +33,7 @@ Quarterly -> monthly
 ρ = 0.87^(1/3)
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 =#
-function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.7,
+function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
@@ -66,13 +66,12 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
     if procyclical == false
         ω = log(γ)/(1-β) # scalar
     elseif procyclical == true
-        #println("Solving for value of unemployment...")
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ_z = μ_z,
     ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
-    z_1_idx = z_1_idx, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
+    z_1_idx = z_1_idx, lzgrid = lzgrid, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
 """
