@@ -85,8 +85,9 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0)
         a_flag = 0
     else 
         # solve for positive root. nudge to avoid any runtime errors.
-        #aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  # check multiplicity
-        aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max))
+        #aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  # checks for multiplicity of roots
+        #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
+        aa         = fzero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + (x <= 10^-12)*10^10, 1.0)
 
         if ~isempty(aa)
             a      = aa[1] 
