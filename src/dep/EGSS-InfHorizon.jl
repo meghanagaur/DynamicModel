@@ -37,12 +37,12 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, z_1 = z_ss, N_z = 11)
 
     # Basic parameterization
-    q(θ)    = (1 + θ^ι)^(-1/ι)              # job-filling rate
-    f(θ)    = (1 + θ^-ι)^(-1/ι)             # job-finding rate
-    u(c)    = log(max(c, 10^-8))            # utility from consumption                
-    h(a)    = hbar*(a^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
-    hp(a)   = hbar*a^(1/ε)                  # h'(a)
-    u(c, a) = u(c) - h(a)                   # overall utility function
+    q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
+    f(θ)    = (1 + θ^-ι)^(-1/ι)                         # job-finding rate
+    u(c)    = log(max(c, 10^-8))                        # utility from consumption                
+    h(a)    = hbar*(max(a, eps())^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
+    hp(a)   = hbar*max(eps(), a)^(1/ε)                  # h'(a)
+    u(c, a) = u(c) - h(a)                               # overall utility function
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
@@ -87,11 +87,11 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
     else 
 
         # solve for the positive root. nudge to avoid any runtime errors.
-        if check_mult == true # checks for multiplicity of roots
-            aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
-        else 
-            #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
+        if check_mult == false 
             aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
+            #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
+        else
+            aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
         end
 
         if ~isempty(aa)
