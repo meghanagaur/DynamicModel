@@ -76,18 +76,23 @@ end
 
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
-Note: a_min > 0 to allow for numerical error.
+Note: a_min > 0 to allow for numerical error. 
+If check_min == true, then root-finding checks for multiple roots. However, this is slow.
 """
-function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0)
+function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
     @unpack ψ, ε, q, κ, hp, σ_η = modd
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
         a_flag = 0
     else 
-        # solve for positive root. nudge to avoid any runtime errors.
-        #aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  # checks for multiplicity of roots
-        #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
-        aa         = fzero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)) + (x <= 10^-12)*10^10, 1.0)
+
+        # solve for the positive root. nudge to avoid any runtime errors.
+        if check_mult == true # checks for multiplicity of roots
+            aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
+        else 
+            #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
+            aa         = fzero(x -> (x > a_min)*(x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
+        end
 
         if ~isempty(aa)
             a      = aa[1] 
