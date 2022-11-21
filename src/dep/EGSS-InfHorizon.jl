@@ -39,7 +39,7 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
     f(θ)    = (1 + θ^-ι)^(-1/ι)                         # job-finding rate
-    u(c)    = log(max(c, 10^-8))                        # utility from consumption                
+    u(c)    = log(max(c, eps()))                        # utility from consumption                
     h(a)    = hbar*(max(a, eps())^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
     hp(a)   = hbar*max(eps(), a)^(1/ε)                  # h'(a)
     u(c, a) = u(c) - h(a)                               # overall utility function
@@ -115,14 +115,15 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
     # set tolerance parameters for outermost loop
-    err1   = 10
-    iter1  = 1
+    err1    = 10
+    iter1   = 1
     # initialize tolerance parameters for inner loops (for export)
-    err2   = 10
-    iter2  = 1
-    err3   = 10
-    iter3  = 1
-    IR_err = 10
+    err2    = 10
+    iter2   = 1
+    err3    = 10
+    iter3   = 1
+    IR_err  = 10
+    flag_IR = 0
 
     # Initialize default values and search parameters
     ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_1
@@ -204,9 +205,12 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         #err1   = min(abs(IR_err), abs(q_1 - q_0))   # compute convergence criterion
         err1    = abs(IR_err)
 
-        # export the accurate iter & q value
+        # Record info on IR constraint
+        flag_IR = (IR_err < 0)*(abs(IR_err) >= tol1)
+
+        # Export the accurate iter & q value
         if err1 > tol1
-            if abs(q_1 - q_lb_0) < 10^(-10) || abs(q_1 - q_ub_0) < 10^(-10) 
+            if min(abs(q_1 - q_ub_0), abs(q_1 - q_lb_0))  < 10^(-10) 
                 break
             else
                 q_0     = α*q_0 + (1 - α)*q_1
@@ -215,9 +219,6 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
 
     end
-
-    # Record info on IR constraint
-    flag_IR = (IR_err < 0)*(abs(IR_err) >= tol1)
 
     return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err*flag_IR, flag_IR = flag_IR,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
