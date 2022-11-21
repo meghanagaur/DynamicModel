@@ -110,7 +110,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
-    tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0)
+    tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
     @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
 
@@ -155,7 +155,7 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
             w_0  = ψ*(Y_0[z_1_idx] - κ/q_0) # constant for wage difference equation
             # Solve for optimal effort a(z | z_1)
             @inbounds for (iz,z) in enumerate(zgrid)
-                az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0)
+                az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0; check_mult = check_mult)
             end
             Y_1    = yz + β*(1-s)*P_z*Y_0    
             err2   = maximum(abs.(Y_0 - Y_1))  # Error       

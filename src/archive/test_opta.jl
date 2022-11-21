@@ -1,6 +1,6 @@
 
 
-modd = model(ε=1.9, γ=0.1, χ=1.0, z_1=model().zgrid[1])
+modd = model(ε=0.5, γ=0.65, χ=0.0, z_1=model().zgrid[1])
 
 
 # Solve for optimal effort a(z | z_1)
