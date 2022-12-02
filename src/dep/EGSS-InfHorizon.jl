@@ -80,7 +80,9 @@ Note: a_min > 0 to allow for numerical error.
 If check_min == true, then root-finding checks for multiple roots. However, this is slow.
 """
 function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
+   
     @unpack ψ, ε, q, κ, hp, σ_η = modd
+    
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
         a_flag = 0
@@ -88,22 +90,27 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
 
         # solve for the positive root. nudge to avoid any runtime errors.
         if check_mult == false 
-            aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
+            aa          = solve(ZeroProblem( x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
+            #aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
             #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
-        else
-            aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
+        elseif check_mult == true
+            aa          = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
         end
 
-        if ~isempty(aa)
+        if ~isempty(aa) & (maximum(isnan.(aa)) == 0 )
             a      = aa[1] 
             a_flag = max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) 
-        elseif isempty(aa)
+        
+        elseif isempty(aa) || (maximum(isnan.(aa))==1)
             a       = 0
             a_flag  = 1
         end
     end
+
     y      = a*z # Expectation of y_t = z_t*(a_t+ η_t) over η_t (given z_t)
+
     return a, y, a_flag
+
 end
 
 """
