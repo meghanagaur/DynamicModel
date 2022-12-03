@@ -34,7 +34,7 @@ Quarterly -> monthly
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
-    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, z_1 = z_ss, N_z = 11)
+    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
@@ -49,7 +49,6 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
     μ_z       = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))            # normalize E[z_t] = 1
     logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)                    # discretized logz grid & transition probabilties
     zgrid     = exp.(logz)                                       # actual productivity grid
-    z_1_idx   = findfirst(isapprox(z_1, atol = 0.0001), zgrid)   # index of z0 on zgrid
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -70,8 +69,8 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
     end
     
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ_z = μ_z,
-    ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, z_1 = z_1, h = h, u = u, hp = hp, 
-    z_1_idx = z_1_idx, logz = logz, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
+    ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, 
+    logz = logz, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
 """
@@ -116,10 +115,13 @@ end
 """
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
-function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
+function solveModel(modd; z_1 = 1.0, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
-    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_1_idx = modd  
+    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z = modd  
+    
+    # find z_1 idx 
+    z_1_idx   = findfirst(isapprox(z_1, atol = 0.0001), zgrid)   # index of z0 on zgrid
 
     # set tolerance parameters for outermost loop
     err1    = 10
@@ -207,8 +209,8 @@ function solveModel(modd; max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000,
         end
 
         # Bisection
-        IR_err = U - ω_0                            # check whether IR constraint holds
-        q_1    = (q_lb + q_ub)/2                    # update q
+        IR_err = U - ω_0                             # check whether IR constraint holds
+        q_1    = (q_lb + q_ub)/2                     # update q
         #err1   = min(abs(IR_err), abs(q_1 - q_0))   # compute convergence criterion
         err1    = abs(IR_err)
 
