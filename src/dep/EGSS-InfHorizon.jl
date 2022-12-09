@@ -81,7 +81,7 @@ If check_min == true, then root-finding checks for multiple roots. However, this
 """
 function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
    
-    @unpack ψ, ε, q, κ, hp, σ_η = modd
+    @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
     
     if ε == 1 # can solve analytically for positive root
         a      = (z/w_0)/(1 + ψ*σ_η^2)
