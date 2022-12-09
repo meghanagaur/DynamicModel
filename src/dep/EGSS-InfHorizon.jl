@@ -32,9 +32,10 @@ function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 
 Quarterly -> monthly
 ρ = 0.87^(1/3)
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
+0.0065 -> 0.003 for new test
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
-    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.0065, χ = 0.0, γ = 0.6, N_z = 11)
+    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
@@ -92,11 +93,13 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
             aa          = solve(ZeroProblem( x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
             #aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
             #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
+        
         elseif check_mult == true
             aa          = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
         end
 
         if ~isempty(aa) & (maximum(isnan.(aa)) == 0 )
+
             a      = aa[1] 
             a_flag = max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) 
         
@@ -162,7 +165,9 @@ function solveModel(modd; z_1 = 1.0, max_iter1 = 50, max_iter2 = 1000, max_iter3
         Y_0    = ones(N_z)*(50*κ/q_0)   # initial guess for Y(z | z_1)
         
         @inbounds while err2 > tol2 && iter2 <= max_iter2   
+           
             w_0  = ψ*(Y_0[z_1_idx] - κ/q_0) # constant for wage difference equation
+           
             # Solve for optimal effort a(z | z_1)
             @inbounds for (iz,z) in enumerate(zgrid)
                 az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0; check_mult = check_mult)
