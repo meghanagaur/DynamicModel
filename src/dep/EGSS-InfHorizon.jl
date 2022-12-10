@@ -32,7 +32,7 @@ function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 
 Quarterly -> monthly
 ρ = 0.87^(1/3)
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
-0.0065 -> 0.003 for new test
+0.0065 with PNZ, but use 0.003 for newewst version of code 
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
@@ -97,16 +97,19 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
             #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
         
         elseif check_mult == true
-            #aa          = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
+            #aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
             aa          = find_zeros(x -> x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, 0)^(ε/(1+ε)), a_min, a_max)  
         end
 
-        if ~isempty(aa) & (maximum(isnan.(aa)) == 0 )
-
-            a      = aa[1] 
-            a_flag = max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) 
-        
-        elseif isempty(aa) || (maximum(isnan.(aa))==1)
+        if ~isempty(aa) 
+            if (maximum(isnan.(aa)) == 0 )
+                a      = aa[1] 
+                a_flag = max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) 
+            else
+                a       = 0
+                a_flag  = 1
+            end
+        elseif isempty(aa) 
             a       = 0
             a_flag  = 1
         end
