@@ -79,7 +79,7 @@ Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error. 
 If check_min == true, then root-finding checks for multiple roots. However, this is slow.
 """
-function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
+function optA(z, modd, w_0; a_min = 10^-8, a_max = 100.0, check_mult = false)
    
     @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
     
@@ -98,7 +98,7 @@ function optA(z, modd, w_0; a_min = 10^-12, a_max = 100.0, check_mult = false)
         
         elseif check_mult == true
             #aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
-            aa          = find_zeros(x -> x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, 0)^(ε/(1+ε)), a_min, a_max)  
+            aa          = find_zeros( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10,  a_min, a_max)
         end
 
         if ~isempty(aa) 
