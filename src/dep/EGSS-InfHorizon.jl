@@ -47,9 +47,9 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
-    μ_z       = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))            # normalize E[z_t] = 1
-    logz, P_z = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)                    # discretized logz grid & transition probabilties
-    zgrid     = exp.(logz)                                       # actual productivity grid
+    μ_z         = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))       # normalize E[z_t] = 1
+    logz, P_z   = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)               # discretized logz grid & transition probabilties
+    zgrid       = exp.(logz)                                  # actual productivity grid
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -226,7 +226,7 @@ function solveModel(modd; z_1 = 1.0, max_iter1 = 50, max_iter2 = 1000, max_iter3
         err1    = abs(IR_err)
 
         # Record info on IR constraint
-        flag_IR = (IR_err < 0)*(abs(IR_err) >= tol1)
+        flag_IR = (IR_err < 0)*(abs(IR_err) > tol1)
 
         # Export the accurate iter & q value
         if err1 > tol1

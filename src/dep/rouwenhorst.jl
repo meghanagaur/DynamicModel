@@ -40,5 +40,6 @@ function rouwenhorst(mu::T, rho::T, sig::T, n::U) where {T,U}
     end
 
     return Lambda, P
+
 end
 
