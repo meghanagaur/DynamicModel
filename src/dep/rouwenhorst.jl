@@ -48,7 +48,7 @@ function rouwenhorst(mu::T, rho::T, sig::T, n::U) where {T,U}
     O           = zeros(1,n)
     O[end]      = 1
     pi          = (O*inv(A))
-    pi          = pi/sum(pi)
+    pi          = vec(pi/sum(pi))
     
     return Lambda, P, pi
 
