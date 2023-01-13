@@ -71,7 +71,7 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
-    return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_z = σ_z, z_ss = z_ss, μ_z = μ_z,
+    return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ_z = μ_z,
     ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, 
     logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ, procyclical = procyclical)
 end
