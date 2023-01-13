@@ -2,9 +2,12 @@
 Monthly calibration, no savings. =#
 
 """
-Set up the dynamic EGSS model, where m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι),
-η ∼ N(0, σ_η^2), log(z_t) = μ_z + ρ*log(z_t-1) + u_t, u_t ∼ N(0, σ_z^2),
-and y_t = z_t(a_t + η_t).
+Set up the dynamic EGSS model:
+
+m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι)
+log(z_t) = (1 - ρ)μ_z + ρ*log(z_t - 1 ) + ϵ_t, where ϵ_t ∼ N(0, σ_z^2),
+y_t = z_t(a_t + η_t), where η ∼ N(0, σ_η^2).
+
 β    = discount factor
 s    = exogenous separation rate
 α    = elasticity of matching function 
@@ -14,11 +17,10 @@ s    = exogenous separation rate
 χ    = prop. of unemp benefit to z / actual unemp benefit
 γ    = intercept for unemp benefit w / procyclical benefit
 z_ss = mean productivity (this is just a definition)
-z_0  = value of initial z; MUST BE ON ZGRID.
 σ_η  = st dev of η distribution
-z_1  = initial prod. (= log(z_ss) by default)
-ρ    = persistence of log prod. process
-σ_ϵ  = variance of noise in log prod. process
+μ_z  = unconditional mean of log productivity 
+ρ    = persistence of log productivity
+σ_z  = conditional variance of log productivity
 ε    = Frisch elasticity: disutility of effort
 hbar = disutility of effort - level
 ψ    = pass-through parameter
@@ -35,7 +37,7 @@ Quarterly -> monthly
 0.0065 with PNZ, but use 0.003 for newewst version of code 
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
-    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
+    hbar = 1.0, ρ =  0.95^(1/3), σ_z = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
@@ -47,9 +49,9 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
-    μ_z         = log(z_ss) - ((1-ρ)*σ_ϵ^2)/(2*(1-ρ^2))       # normalize E[z_t] = 1
-    logz, P_z   = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)               # discretized logz grid & transition probabilties
-    zgrid       = exp.(logz)                                  # actual productivity grid
+    μ_z             = log(z_ss) - (σ_z^2)/(2*(1-ρ^2))   # normalize, so that E[z_t] = 1
+    logz, P_z, p_z  = rouwenhorst(μ_z, ρ, σ_z, N_z)     # log z grid, transition matrix, invariant distribution
+    zgrid           = exp.(logz)                        # z grid in levels
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -69,9 +71,9 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
-    return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ_z = μ_z,
+    return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_z = σ_z, z_ss = z_ss, μ_z = μ_z,
     ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, 
-    logz = logz, zgrid = zgrid, P_z = P_z, χ = χ, γ = γ, procyclical = procyclical)
+    logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
 """
