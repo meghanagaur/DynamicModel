@@ -5,7 +5,7 @@ Monthly calibration, no savings. =#
 Set up the dynamic EGSS model:
 
 m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι)
-log(z_t) = (1 - ρ)μ_z + ρ*log(z_t - 1 ) + ϵ_t, where ϵ_t ∼ N(0, σ_z^2),
+log(z_t) = (1 - ρ)μ_z + ρ*log(z_t - 1 ) + ϵ_t, where ϵ_t ∼ N(0, σ_ϵ^2),
 y_t = z_t(a_t + η_t), where η ∼ N(0, σ_η^2).
 
 β    = discount factor
@@ -20,7 +20,7 @@ z_ss = mean productivity (this is just a definition)
 σ_η  = st dev of η distribution
 μ_z  = unconditional mean of log productivity 
 ρ    = persistence of log productivity
-σ_z  = conditional variance of log productivity
+σ_ϵ  = conditional variance of log productivity
 ε    = Frisch elasticity: disutility of effort
 hbar = disutility of effort - level
 ψ    = pass-through parameter
@@ -37,7 +37,7 @@ Quarterly -> monthly
 0.0065 with PNZ, but use 0.003 for newewst version of code 
 =#
 function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
-    hbar = 1.0, ρ =  0.95^(1/3), σ_z = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
+    hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
@@ -49,8 +49,8 @@ function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
-    μ_z             = log(z_ss) - (σ_z^2)/(2*(1-ρ^2))   # normalize, so that E[z_t] = 1
-    logz, P_z, p_z  = rouwenhorst(μ_z, ρ, σ_z, N_z)     # log z grid, transition matrix, invariant distribution
+    μ_z             = log(z_ss) - (σ_ϵ^2)/(2*(1-ρ^2))   # normalize, so that E[z_t] = 1
+    logz, P_z, p_z  = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)     # log z grid, transition matrix, invariant distribution
     zgrid           = exp.(logz)                        # z grid in levels
 
     # Pass-through parameter
