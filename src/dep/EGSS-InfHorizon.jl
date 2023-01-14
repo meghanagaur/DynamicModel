@@ -36,7 +36,7 @@ Quarterly -> monthly
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 0.0065 with PNZ, but use 0.003 for newewst version of code 
 =#
-function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
+function model(; β = 0.99^(1/3), s = 0.03, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 1.25,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
@@ -132,7 +132,7 @@ function solveModel(modd; z_1 = 1.0, max_iter1 = 50, max_iter2 = 1000, max_iter3
     @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z = modd  
     
     # find z_1 idx 
-    z_1_idx   = findfirst(isapprox(z_1, atol = 0.0001), zgrid)   # index of z0 on zgrid
+    z_1_idx   = findfirst(isapprox(z_1, atol = 0.00001), zgrid)   # index of z0 on zgrid
 
     # set tolerance parameters for outermost loop
     err1    = 10
