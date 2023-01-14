@@ -132,7 +132,7 @@ function solveModel(modd; z_1 = 1.0, max_iter1 = 50, max_iter2 = 1000, max_iter3
     @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z = modd  
     
     # find z_1 idx 
-    z_1_idx   = findfirst(isapprox(z_1, atol = 0.00001), zgrid)   # index of z0 on zgrid
+    z_1_idx   = findfirst(isapprox(z_1, atol = 0.0005), zgrid)   # index of z0 on zgrid
 
     # set tolerance parameters for outermost loop
     err1    = 10
