@@ -52,6 +52,7 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
     μ_z             = log(z_ss) - (σ_ϵ^2)/(2*(1-ρ^2))   # normalize, so that E[z_t] = 1
     logz, P_z, p_z  = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)     # log z grid, transition matrix, invariant distribution
     zgrid           = exp.(logz)                        # z grid in levels
+    z_ss_idx        = findfirst(isapprox(μ_z, atol = 1e-6), logz )
 
     # Pass-through parameter
     ψ    = 1 - β*(1-s)
@@ -72,7 +73,7 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
     end
     
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ_z = μ_z,
-    ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, 
+    ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, z_ss_idx = z_ss_idx,
     logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
