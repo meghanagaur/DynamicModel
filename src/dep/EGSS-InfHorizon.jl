@@ -126,13 +126,17 @@ end
 """
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
-function solveModel(modd; z_1 = 1.0, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
+function solveModel(modd; z_1 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
     @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z = modd  
     
-    # find z_1 idx 
-    z_1_idx   = findfirst(isapprox(z_1, atol = 0.0005), zgrid)   # index of z0 on zgrid
+    # find index of z_1 on the productivity grid 
+    if isnothing(z_1)
+        z_1_idx = Int64(median(1:N_z))
+    else
+        z_1_idx = findfirst(isapprox(z_1, atol = 1e-6), zgrid)  
+    end
 
     # set tolerance parameters for outermost loop
     err1    = 10
