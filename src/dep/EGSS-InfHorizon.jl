@@ -62,7 +62,7 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
         procyclical = false
     else
         procyclical = true
-        ξ(z) = (γ)*(z/z_ss)^χ 
+        ξ(z) = (γ)*z^χ 
     end
 
     # PV of unemp = PV of utility from consuming unemployment benefit forever
@@ -247,7 +247,7 @@ function solveModel(modd; z_1 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
 
     end
 
-    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω_0 = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err*flag_IR, flag_IR = flag_IR,
+    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_1_idx], U = U, ω = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err*flag_IR, flag_IR = flag_IR,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), conv_flag1 = (iter1 > max_iter1), conv_flag2 = (iter2 > max_iter2), conv_flag3 = (iter3 > max_iter3))
 end
@@ -257,12 +257,13 @@ Solve for the value of unemployment, with a
 procyclical unemployment benefit via value function iteration.
 """
 function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 5000)
+    
     N_z    = length(zgrid)
     v0_new = zeros(N_z)
     v0     = u.(ξ.(zgrid))
     iter   = 1
     err    = 10
-
+    
     # solve via simple value function iteration
     @inbounds while err > tol && iter < max_iter
         v0_new = u.(ξ.(zgrid)) + β*P_z*v0
