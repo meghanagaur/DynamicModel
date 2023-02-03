@@ -36,7 +36,7 @@ Quarterly -> monthly
 σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
 0.0065 with PNZ, but use 0.003 for newewst version of code 
 =#
-function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 1.25,
+function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
