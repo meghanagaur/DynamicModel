@@ -109,12 +109,12 @@ function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
                 a      = aa[1] 
                 a_flag = max(a < a_min , max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) )
             else
-                a       = 0
+                a       = eps()
                 a_flag  = 1
             end
         elseif isempty(aa) 
-            a       = 0
-            a_flag  = 1
+            a           = eps()
+            a_flag      = 1
         end
     end
 
