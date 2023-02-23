@@ -10,8 +10,7 @@ y_t = z_t(a_t + η_t), where η ∼ N(0, σ_η^2).
 
 β    = discount factor
 s    = exogenous separation rate
-α    = elasticity of matching function 
-μ    = matching function efficiency
+ι    = controls elasticity of matching function 
 κ    = vacancy-posting cost
 ω    = worker's PV from unemployment (infinite horizon)
 χ    = prop. of unemp benefit to z / actual unemp benefit
@@ -27,15 +26,6 @@ hbar = disutility of effort - level
 
 procyclical == (procyclical unemployment benefit)
 """ 
-#=
-Quarterly:
-function model(; β = 0.99, s = 0.088, κ = 0.474, ι = 1.67, ε = 0.5, σ_η = 0.05, z_ss = 1.0,
-    ρ =  0.87, σ_ϵ = 0.008, χ = 0.1, γ = 0.66, z_1 = z_ss, μ_z = log(z_ss), N_z = 11, procyclical = true)
-Quarterly -> monthly
-ρ = 0.87^(1/3)
-σ = sqrt(0.017^2 / mapreduce(j-> ρ^(2j), +, [0:2;])) = 0.01
-0.0065 with PNZ, but use 0.003 for newewst version of code 
-=#
 function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z_ss = 1.0, ι = 0.8,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
@@ -54,7 +44,7 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
     zgrid           = exp.(logz)                        # z grid in levels
     z_ss_idx        = findfirst(isapprox(μ_z, atol = 1e-6), logz )
 
-    # Pass-through parameter
+    # Pass-through 
     ψ    = 1 - β*(1-s)
 
     # Unemployment benefit given aggregate state: (z) 
@@ -67,13 +57,13 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
 
     # PV of unemp = PV of utility from consuming unemployment benefit forever
     if procyclical == false
-        ω = log(γ)/(1-β) # scalar
+        ω = log(γ)/(1 - β) # scalar
     elseif procyclical == true
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, z_ss = z_ss, μ_z = μ_z,
-    ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, z_ss_idx = z_ss_idx,
+    ι = ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, z_ss_idx = z_ss_idx,
     logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ, procyclical = procyclical)
 end
 
@@ -94,8 +84,7 @@ function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
         # solve for the positive root. nudge to avoid any runtime errors.
         if check_mult == false 
             aa          = solve(ZeroProblem( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
-            #aa          = solve(ZeroProblem( x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
-
+            #aa         = solve(ZeroProblem( x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
             #aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
             #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
         
@@ -130,11 +119,11 @@ Solve the infinite horizon EGSS model using a bisection search on θ.
 function solveModel(modd; z_1 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
-    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z = modd  
+    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
     
     # find index of z_1 on the productivity grid 
     if isnothing(z_1)
-        z_1_idx = Int64(median(1:N_z))
+        z_1_idx = z_ss_idx
     else
         z_1_idx = findfirst(isapprox(z_1, atol = 1e-6), zgrid)  
     end
@@ -151,7 +140,8 @@ function solveModel(modd; z_1 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
     flag_IR = 0
 
     # Initialize default values and search parameters
-    ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_1
+    ω_0    = procyclical ? ω[z_1_idx] : ω # unemployment value at z_0
+    ω_vec  = procyclical ?  copy(ω) : ω*ones(N_z)
     q_lb   = q_lb_0          # lower search bound for q
     q_ub   = q_ub_0          # upper search bound for q
     q_0    = (q_lb + q_ub)/2 # initial guess for q
@@ -199,8 +189,6 @@ function solveModel(modd; z_1 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         # Solve recursively for the PV utility from the contract
         err3  = 10
         iter3 = 1  
-
-        ω_vec = procyclical ?  copy(ω) : ω*ones(N_z)
         W_0   = copy(ω_vec) # initial guess
         flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω_vec)
 
