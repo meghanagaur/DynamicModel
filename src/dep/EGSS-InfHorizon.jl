@@ -72,7 +72,7 @@ Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error. 
 If check_min == true, then root-finding checks for multiple roots (slow).
 """
-function optA(z, modd, w_0; a_min = 10^(-8), a_max = 100.0, check_mult = false)
+function optA(z, modd, w_0; a_min = 10^-8, a_max = 100.0, check_mult = false)
    
     @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
     
@@ -116,7 +116,7 @@ end
 """
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
-function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
+function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-7,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
     @unpack β, s, κ, ι, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
