@@ -33,8 +33,8 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
     f(θ)    = (1 + θ^-ι)^(-1/ι)                         # job-finding rate
     u(c)    = log(max(c, eps()))                        # utility from consumption                
-    h(a)    = hbar*(max(a, eps())^(1 + 1/ε))/(1 + 1/ε)  # disutility from effort  
-    hp(a)   = hbar*max(eps(), a)^(1/ε)                  # h'(a)
+    h(a)    = hbar*(max(a, 0)^(1 + 1/ε))/(1 + 1/ε)      # disutility from effort  
+    hp(a)   = hbar*max(a, 0)^(1/ε)                      # h'(a)
     u(c, a) = u(c) - h(a)                               # overall utility function
 
     # Define productivity grid
@@ -72,7 +72,7 @@ Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error. 
 If check_min == true, then root-finding checks for multiple roots (slow).
 """
-function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
+function optA(z, modd, w_0; a_min = 10^(-8), a_max = 100.0, check_mult = false)
    
     @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
     
@@ -119,7 +119,7 @@ Solve the infinite horizon EGSS model using a bisection search on θ.
 function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
     tol1 = 10^-8, tol2 = 10^-8, tol3 =  10^-8, noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
-    @unpack β, s, κ, ι, ε, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
+    @unpack β, s, κ, ι, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
     
     # find index of z_0 on the productivity grid 
     if isnothing(z_0)
@@ -185,7 +185,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
                     Y_0    = α*Y_0 + (1 - α)*Y_1 
                 end
             end
-            #println(Y_0[z_0_idx])
+            #println(err2)
         end
 
         # Solve recursively for the PV utility from the contract
@@ -203,7 +203,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
                     W_0  = α*W_0 + (1 - α)*W_1
                 end
             end
-            #println(W_0[z_0_idx])
+            #println(err3)
         end
         
         # Check the IR constraint (must bind)
