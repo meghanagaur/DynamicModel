@@ -26,7 +26,7 @@ hbar = disutility of effort - level
 
 procyclical == (procyclical unemployment benefit)
 """ 
-function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, zbar = 1.0, ι = 0.8,
+function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, zbar = 1.0, ι = 0.85,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
@@ -89,7 +89,6 @@ function optA(z, modd, w_0; a_min = 10^-8, a_max = 100.0, check_mult = false)
             #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
         
         elseif check_mult == true
-            #aa         = find_zeros(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), a_min, a_max)  
             aa          = find_zeros( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10,  a_min, a_max)
         end
 
@@ -98,11 +97,11 @@ function optA(z, modd, w_0; a_min = 10^-8, a_max = 100.0, check_mult = false)
                 a      = aa[1] 
                 a_flag = max(a < a_min , max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) )
             else
-                a       = eps()
+                a       = 0.0
                 a_flag  = 1
             end
         elseif isempty(aa) 
-            a           = eps()
+            a           = 0.0
             a_flag      = 1
         end
     end
