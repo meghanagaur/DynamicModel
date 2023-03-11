@@ -26,7 +26,7 @@ hbar = disutility of effort - level
 
 procyclical == (procyclical unemployment benefit)
 """ 
-function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, zbar = 1.0, ι = 0.85,
+function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, zbar = 1.0, ι = 0.9,
     hbar = 1.0, ρ =  0.95^(1/3), σ_ϵ = 0.003, χ = 0.0, γ = 0.6, N_z = 11)
 
     # Basic parameterization
@@ -72,7 +72,7 @@ Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
 Note: a_min > 0 to allow for numerical error. 
 If check_min == true, then root-finding checks for multiple roots (slow).
 """
-function optA(z, modd, w_0; a_min = 10^-8, a_max = 100.0, check_mult = false)
+function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
    
     @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
     
