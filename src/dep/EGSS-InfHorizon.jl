@@ -4,9 +4,9 @@ Monthly calibration, no savings. =#
 """
 Set up the dynamic EGSS model:
 
-m(u,v) = (uv)/(u^ι + v^⟦)^(1/ι)
+m(u,v)   = (uv)/(u^ι + v^⟦)^(1/ι)
 log(z_t) = (1 - ρ)μ_z + ρ*log(z_t - 1 ) + ϵ_t, where ϵ_t ∼ N(0, σ_ϵ^2),
-y_t = z_t(a_t + η_t), where η ∼ N(0, σ_η^2).
+y_t      = z_t(a_t + η_t), where η ∼ N(0, σ_η^2).
 
 β    = discount factor
 s    = exogenous separation rate
@@ -20,8 +20,8 @@ zbar = mean productivity
 μ_z  = unconditional mean of log productivity 
 ρ    = persistence of log productivity
 σ_ϵ  = conditional variance of log productivity
-ε    = Frisch elasticity: disutility of effort
-hbar = disutility of effort - level
+ε    = disutility of effort (Frisch elasticity)
+hbar = disutility of effort (level)
 ψ    = pass-through parameter
 
 procyclical == (procyclical unemployment benefit)
@@ -35,19 +35,19 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, z
     u(c)    = log(max(c, eps()))                        # utility from consumption                
     h(a)    = hbar*(max(a, 0)^(1 + 1/ε))/(1 + 1/ε)      # disutility from effort  
     hp(a)   = hbar*max(a, 0)^(1/ε)                      # h'(a)
-    u(c, a) = u(c) - h(a)                               # overall utility function
+    #u(c, a) = u(c) - h(a)                              # felicity function
 
     # Define productivity grid
     if (iseven(N_z)) error("N_z must be odd") end 
     μ_z             = log(zbar) - (σ_ϵ^2)/(2*(1-ρ^2))   # normalize E[logz], so that E[z_t] = 1
     logz, P_z, p_z  = rouwenhorst(μ_z, ρ, σ_ϵ, N_z)     # log z grid, transition matrix, invariant distribution
     zgrid           = exp.(logz)                        # z grid in levels
-    z_ss_idx        = findfirst(isapprox(μ_z, atol = 1e-6), logz )
+    z_ss_idx        = findfirst(isapprox(μ_z, atol = 1e-6), logz)
 
     # Pass-through 
     ψ    = 1 - β*(1-s)
 
-    # Unemployment benefit given aggregate state: (z) 
+    # Unemployment benefit given aggregate state: z 
     if isapprox(χ, 0) 
         procyclical = false
     else
@@ -116,7 +116,7 @@ end
 Solve the infinite horizon EGSS model using a bisection search on θ.
 """
 function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
-    tol1 = 10^-9, tol2 = 10^(-10), tol3 =  10^(-10), noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
+    tol1 = 10^-8, tol2 = 10^(-10), tol3 =  10^(-10), noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
     @unpack β, s, κ, ι, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
     
@@ -176,8 +176,10 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
             @inbounds for (iz,z) in enumerate(zgrid)
                 az[iz], yz[iz], a_flag[iz] = optA(z, modd, w_0; check_mult = check_mult, a_min = a_min)
             end
+
             Y_1    = yz + β*(1-s)*P_z*Y_0    
-            err2   = maximum(abs.(Y_0 - Y_1))  # Error       
+            err2   = maximum(abs.(Y_0 - Y_1))  # Error 
+
             if (err2 > tol2) 
                 iter2 += 1
                 if (iter2 < max_iter2) 
@@ -208,7 +210,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         # Check the IR constraint (must bind)
         U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_0_idx] # nudge w_0 to avoid runtime error
         
-        # Upate θ accordingly: U decreasing in θ (increasing in q)
+        # Update θ accordingly: U decreasing in θ (increasing in q)
         if U < ω_0              # increase q (decrease θ)
             q_lb  = copy(q_0)
         elseif U > ω_0          # decrease q (increase θ)
@@ -221,7 +223,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         #err1   = min(abs(IR_err), abs(q_1 - q_0))   # compute convergence criterion
         err1    = abs(IR_err)
 
-        # Record info on IR constraint
+        # Record info on IR constraint violations 
         flag_IR = (IR_err < 0)*(abs(IR_err) > tol1)
 
         # Export the accurate iter & q value
