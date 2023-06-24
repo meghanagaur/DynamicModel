@@ -26,8 +26,8 @@ hbar = disutility of effort (level)
 
 procyclical == (procyclical unemployment benefit)
 """ 
-function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 0.5, σ_η = 0.5, zbar = 1.0, ι = 0.9,
-    hbar = 1.0, ρ =  0.966, σ_ϵ = 0.0056, χ = 0.0, γ = 0.6, N_z = 13)
+function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.3855, σ_η = 0.536, zbar = 1.0, ι = 0.9,
+    hbar = 1.0, ρ =  0.966, σ_ϵ = 0.0056, χ = 0.5159, γ = 0.4743, N_z = 13)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
