@@ -1,4 +1,4 @@
-#= Solve the infinite horizon dynamic EGSS model. 
+#= Solve the infinite horizon dynamic EGSS model with TIOLI. 
 Monthly calibration, no savings. =#
 
 """
@@ -69,7 +69,7 @@ end
 
 """
 Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
-Note: a_min > 0 to allow for numerical error. 
+Note: a_min > 0 to allow for some numerical error. 
 If check_min == true, then root-finding checks for multiple roots (slow).
 """
 function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
@@ -113,7 +113,7 @@ function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
 end
 
 """
-Solve the infinite horizon EGSS model using a bisection search on θ.
+Solve the infinite horizon EGSS model with TIOLI using a bisection search on θ.
 """
 function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
     tol1 = 10^-8, tol2 = 10^(-10), tol3 =  10^(-10), noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
@@ -229,7 +229,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         # Export the accurate iter & q value
         if err1 > tol1
             # stuck in a corner, so break
-            if min(abs(q_1 - q_ub_0), abs(q_1 - q_lb_0))  < 10^(-10) 
+            if min(abs(q_1 - q_ub_0), abs(q_1 - q_lb_0))  < tol1
                 break
             else
                 q_0     = α*q_0 + (1 - α)*q_1
