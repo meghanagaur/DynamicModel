@@ -207,9 +207,10 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
             #println(err3)
         end
         
-        # Check the IR constraint (must bind)
-        U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_0_idx] # nudge w_0 to avoid runtime error
-        
+        # Check the IR constraint (must bind with TIOLI)
+        U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_0_idx] # nudge w_0 to avoid runtime errors
+        IR_err = U - ω_0                                   # check whether IR constraint holds
+
         # Update θ accordingly: U decreasing in θ (increasing in q)
         if U < ω_0              # increase q (decrease θ)
             q_lb  = copy(q_0)
@@ -218,16 +219,16 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         end
 
         # Bisection
-        IR_err = U - ω_0                             # check whether IR constraint holds
         q_1    = (q_lb + q_ub)/2                     # update q
         #err1   = min(abs(IR_err), abs(q_1 - q_0))   # compute convergence criterion
         err1    = abs(IR_err)
 
-        # Record info on IR constraint violations 
-        flag_IR = (IR_err < 0)*(abs(IR_err) > tol1)
+        # Record info on TIOLI/IR constraint violations 
+        flag_IR = (abs(IR_err) > tol1)
 
         # Export the accurate iter & q value
         if err1 > tol1
+            # stuck in a corner, so break
             if min(abs(q_1 - q_ub_0), abs(q_1 - q_lb_0))  < 10^(-10) 
                 break
             else
