@@ -26,8 +26,8 @@ hbar = disutility of effort (level)
 
 procyclical == (procyclical unemployment benefit)
 """ 
-function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.3855, σ_η = 0.536, zbar = 1.0, ι = 0.9,
-    hbar = 1.0, ρ =  0.966, σ_ϵ = 0.0056, χ = 0.5159, γ = 0.4743, N_z = 13)
+function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.713, σ_η = 0.532, zbar = 1.0, ι = 0.9,
+    hbar = 1.0, ρ =  0.966, σ_ϵ = 0.0056, χ = 0.467, γ = 0.461, N_z = 13)
 
     # Basic parameterization
     q(θ)    = (1 + θ^ι)^(-1/ι)                          # job-filling rate
@@ -209,12 +209,12 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         
         # Check the IR constraint (must bind with TIOLI)
         U      = (1/ψ)*log(max(eps(), w_0)) + W_0[z_0_idx] # nudge w_0 to avoid runtime errors
-        IR_err = U - ω_0                                   # check whether IR constraint holds
+        IR_err = U - ω_0                                
 
         # Update θ accordingly: U decreasing in θ (increasing in q)
-        if U < ω_0              # increase q (decrease θ)
+        if IR_err < 0             # increase q (decrease θ)
             q_lb  = copy(q_0)
-        elseif U > ω_0          # decrease q (increase θ)
+        elseif IR_err > 0         # decrease q (increase θ)
             q_ub  = copy(q_0)
         end
 
@@ -224,22 +224,22 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         err1    = abs(IR_err)
 
         # Record info on TIOLI/IR constraint violations 
-        flag_IR = (abs(IR_err) > tol1)
+        flag_IR = (err1 > tol1)
 
         # Export the accurate iter & q value
         if err1 > tol1
-            # stuck in a corner, so break
-            if min(abs(q_1 - q_ub_0), abs(q_1 - q_lb_0))  < tol1
+            # stuck in a corner (0 or 1), so break
+            if abs(q_ub - q_lb)  < tol1/2
                 break
             else
-                q_0     = α*q_0 + (1 - α)*q_1
+                q_0     = q_1
                 iter1  += 1
             end
         end
 
     end
 
-    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_0_idx], U = U, ω = ω_0, w_0 = w_0, mod = modd, IR_err = IR_err*flag_IR, flag_IR = flag_IR,
+    return (θ = (q_0^(-ι) - 1)^(1/ι), Y = Y_0[z_0_idx], U = U, ω = ω_0, w_0 = w_0, mod = modd, IR_err = err1*flag_IR, flag_IR = flag_IR,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), conv_flag1 = (iter1 > max_iter1), conv_flag2 = (iter2 > max_iter2), conv_flag3 = (iter3 > max_iter3))
 end
