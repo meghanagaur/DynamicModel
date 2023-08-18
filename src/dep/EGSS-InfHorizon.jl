@@ -229,7 +229,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         # Export the accurate iter & q value
         if err1 > tol1
             # stuck in a corner (0 or 1), so break
-            if abs(q_ub - q_lb)  < tol1/2
+            if abs(q_ub) < tol1 || abs(q_lb-1) < tol1
                 break
             else
                 q_0     = q_1
