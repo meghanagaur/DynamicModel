@@ -20,7 +20,7 @@ zbar = mean productivity
 μ_z  = unconditional mean of log productivity 
 ρ    = persistence of log productivity
 σ_ϵ  = conditional variance of log productivity
-ε    = disutility of effort (Frisch elasticity)
+ε    = disutility of effort (Frisch elasticity of effort)
 hbar = disutility of effort (level)
 ψ    = pass-through parameter
 
@@ -62,7 +62,7 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.713, σ_η = 0.53
         ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
     end
     
-    return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, zbar = zbar, μ_z = μ_z,
+    return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, zbar = zbar, μ_z = μ_z, ξ = ξ,
     ι = ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, z_ss_idx = z_ss_idx,
     logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ, procyclical = procyclical)
 end
@@ -229,7 +229,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         # Export the accurate iter & q value
         if err1 > tol1
             # stuck in a corner (0 or 1), so break
-            if abs(q_ub) < tol1 || abs(q_lb-1) < tol1
+            if min(abs(q_1 - q_ub_0), abs(q_1 - q_lb_0))  < tol1
                 break
             else
                 q_0     = q_1
