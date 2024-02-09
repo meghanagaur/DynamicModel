@@ -50,15 +50,15 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.713, σ_η = 0.53
     ξ(z) = (γ)*z^χ 
 
     # PV of unemp = PV of utility from consuming unemployment benefit forever
-    if procyclical == false
-        ω = log(γ)/(1 - β) # scalar
-    elseif procyclical == true
-        ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 # N_z x 1
+    if χ == 0
+        ω = ones(N_z)*log(γ)/(1 - β) 
+    else
+        ω = unemploymentValue(β, ξ, u, zgrid, P_z).v0 
     end
     
     return (β = β, s = s, κ = κ, ε = ε, σ_η = σ_η, ρ = ρ, σ_ϵ = σ_ϵ, zbar = zbar, μ_z = μ_z, ξ = ξ,
     ι = ι, hbar = hbar, ω = ω, N_z = N_z, q = q, f = f, ψ = ψ, h = h, u = u, hp = hp, z_ss_idx = z_ss_idx,
-    logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ, procyclical = procyclical)
+    logz = logz, zgrid = zgrid, P_z = P_z, p_z = p_z, χ = χ, γ = γ)
 end
 
 """
