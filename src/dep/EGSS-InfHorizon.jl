@@ -48,12 +48,7 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.713, σ_η = 0.53
     ψ    = 1 - β*(1-s)
 
     # Unemployment benefit given aggregate state: z 
-    if isapprox(χ, 0) 
-        procyclical = false
-    else
-        procyclical = true
-        ξ(z) = (γ)*z^χ 
-    end
+    ξ(z) = (γ)*z^χ 
 
     # PV of unemp = PV of utility from consuming unemployment benefit forever
     if procyclical == false
@@ -263,5 +258,6 @@ function unemploymentValue(β, ξ, u, zgrid, P_z; tol = 10^-8, max_iter = 5000)
         v0     = copy(v0_new)
         iter   +=1
     end
+    
     return (v0 = v0, err = err, iter = iter) 
 end
