@@ -1,6 +1,5 @@
 #= Solve the infinite horizon dynamic EGSS model with TIOLI. 
 Monthly calibration, no savings. =#
-
 """
 Set up the dynamic EGSS model:
 
@@ -63,55 +62,10 @@ function model(; β = 0.99^(1/3), s = 0.031, κ = 0.45, ε = 2.713, σ_η = 0.53
 end
 
 """
-Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
-Note: a_min > 0 to allow for some numerical error. 
-If check_min == true, then root-finding checks for multiple roots (slow).
-"""
-function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
-   
-    @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
-    
-    if ε == 1 # can solve analytically for positive root
-        a      = (z/w_0)/(1 + ψ*σ_η^2)
-        a_flag = 0
-    else 
-
-        # solve for the positive root. nudge to avoid any runtime errors.
-        if check_mult == false 
-            aa          = solve(ZeroProblem( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
-            #aa         = solve(ZeroProblem( x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
-            #aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
-            #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
-        
-        elseif check_mult == true
-            aa          = find_zeros( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10,  a_min, a_max)
-        end
-
-        if ~isempty(aa) 
-            if (maximum(isnan.(aa)) == 0 )
-                a      = aa[1] 
-                a_flag = max(a < a_min , max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) )
-            else
-                a       = 0.0
-                a_flag  = 1
-            end
-        elseif isempty(aa) 
-            a           = 0.0
-            a_flag      = 1
-        end
-    end
-
-    y      = a*z # Expectation of y_t = z_t*(a_t+ η_t) over η_t (given z_t)
-
-    return a, y, a_flag
-
-end
-
-"""
 Solve the infinite horizon EGSS model with TIOLI using a bisection search on θ.
 """
 function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
-    tol1 = 10^-8, tol2 = 10^(-10), tol3 =  10^(-10), noisy = true, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
+    tol1 = 10^-8, tol2 = 10^(-10), tol3 =  10^(-10), noisy = false, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
     @unpack β, s, κ, ι, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
     
@@ -219,7 +173,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         err1    = abs(IR_err)
 
         # Record info on TIOLI/IR constraint violations 
-        flag_IR = (err1 > tol1)
+        IR_flag = (err1 > tol1)
 
         # Export the accurate iter & q value
         if err1 > tol1
@@ -234,9 +188,115 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
 
     end
 
-    return (θ = (q_0^(-ι) - 1)^(1/ι), q = q_0, Y = Y_0[z_0_idx], W = w_0/ψ, U = U, ω = ω_0, w_0 = w_0, IR_err = err1*flag_IR, flag_IR = flag_IR,
+    return (θ = (q_0^(-ι) - 1)^(1/ι), q = q_0, Y = Y_0[z_0_idx], W = w_0/ψ, U = U, ω = ω_0, w_0 = w_0, IR_err = err1*IR_flag, IR_flag = IR_flag,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), conv_flag1 = (iter1 > max_iter1), conv_flag2 = (iter2 > max_iter2), conv_flag3 = (iter3 > max_iter3))
+end
+
+"""
+Solve model for each initial z_0 in zgrid
+"""
+function getModel(modd)
+
+    @unpack hp, zgrid, logz, N_z, P_z, p_z, ψ, f, s, σ_η, χ, γ, hbar, ε, z_ss_idx, ρ, σ_ϵ = modd 
+
+    # Build vectors     
+    θ_z       = zeros(N_z)               # θ(z_1)
+    f_z       = zeros(N_z)               # f(θ(z_1))
+    hp_z      = zeros(N_z, N_z)          # h'(a(z_i | z_j))
+    y_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
+    lw1_z     = zeros(N_z)               # E[log w1|z] <- wages of new hires -- denote it by time 1 for simplicity (w_0 is the constant)
+    pt_z      = zeros(N_z, N_z)          # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
+    flag_z    = zeros(Int64, N_z)        # convergence/effort/wage flags
+    flag_IR_z = zeros(Int64, N_z)        # IR flags
+    err_IR_z  = zeros(N_z)               # IR error
+
+    Threads.@threads for iz = 1:N_z
+
+        # Solve the model for z_0 = zgrid[iz]
+        sol = solveModel(modd; z_0 = zgrid[iz])
+        @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, flag_IR, az, yz, w_0, θ, Y = sol
+        
+        # Record flags
+        flag_z[iz]    = maximum([conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag])
+        flag_IR_z[iz] = flag_IR
+        err_IR_z[iz]  = IR_err
+
+        if flag_z[iz] < 1             
+            # Expected output  a(z_i | z_j)*z_i
+            y_z[:,iz]     = yz
+
+            # Marginal disutility of effort, given z_0 = z
+            hp_z[:,iz]    = hp.(az)  # h'(a(z|z_1))
+
+            # Expectation of the log wage of new hires, given z_0 = z
+            lw1_z[iz]     = log(max(eps(), w_0)) - 0.5*(ψ*hp_z[iz, iz]*σ_η)^2 
+            
+            # Tightness and job-finding rate, given z_0 = z
+            θ_z[iz]       = θ      
+            f_z[iz]       = f(θ)       
+
+            # Compute expected passthrough: elasticity of w_it wrt y_it 
+            pt_z[:,iz]    = ψ*hbar*az.^(1 + 1/ε)
+        end
+    end
+
+    return (θ_z          = θ_z,                 # θ(z)
+            f_z          = f_z,                 # f(θ(z))
+            hp_z         = hp_z,                # h'(a(z_i | z_j))
+            y_z          = y_z,                 # a(z_i | z_j)*z_i
+            lw1_z        = lw1_z,               # E[log w1|z] <- wages of new hires -- denote it by time 1 for simplicity (w_0 is the constant)
+            pt_z         = pt_z,                # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
+            flag_z       = flag_z,              # convergence/effort/wage flags
+            flag_IR_z    = flag_IR_z,           # IR flags
+            err_IR_z     = err_IR_z,            # IR error
+            W            = W,                   # EPDV wages
+            Y            = Y)                   # EPDV output
+end
+
+"""
+Solve for the optimal effort a(z | z_0), given Y(z_0), θ(z_0), and z.
+Note: a_min > 0 to allow for some numerical error. 
+If check_min == true, then root-finding checks for multiple roots (slow).
+"""
+function optA(z, modd, w_0; a_min = 10^-6, a_max = 100.0, check_mult = false)
+   
+    @unpack ψ, ε, q, κ, hp, σ_η, hbar = modd
+    
+    if ε == 1 # can solve analytically for positive root
+        a      = (z/w_0)/(1 + ψ*σ_η^2)
+        a_flag = 0
+    else 
+
+        # solve for the positive root. nudge to avoid any runtime errors.
+        if check_mult == false 
+            aa          = solve(ZeroProblem( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
+            #aa         = solve(ZeroProblem( x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0))
+            #aa         = fzero(x -> (x > a_min)*(x - max( z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10, 1.0)
+            #aa         = find_zero(x -> x - max(z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2, 0)^(ε/(1+ε)), (a_min, a_max)) # requires bracketing
+        
+        elseif check_mult == true
+            aa          = find_zeros( x -> (x > a_min)*(x - max( (z*x/w_0 - (ψ/ε)*(hp(x)*σ_η)^2)/hbar, eps() )^(ε/(1+ε))) + (x <= a_min)*10^10,  a_min, a_max)
+        end
+
+        if ~isempty(aa) 
+            if (maximum(isnan.(aa)) == 0 )
+                a      = aa[1] 
+                a_flag = max(a < a_min , max( ((z*a/w_0 - (ψ/ε)*(hp(a)*σ_η)^2) < 0), (length(aa) > 1) ) )
+            else
+                a       = 0.0
+                a_flag  = 1
+            end
+        elseif isempty(aa) 
+            a           = 0.0
+            a_flag      = 1
+        end
+    end
+
+    y      = a*z # Expectation of y_t = z_t*(a_t+ η_t) over η_t (given z_t)
+
+    return a, y, a_flag
+
 end
 
 """
