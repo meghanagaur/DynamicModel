@@ -205,6 +205,7 @@ function getModel(modd)
     f_z       = zeros(N_z)               # f(θ(z_1))
     hp_z      = zeros(N_z, N_z)          # h'(a(z_i | z_j))
     y_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
+    a_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
     lw1_z     = zeros(N_z)               # E[log w1|z] <- wages of new hires -- denote it by time 1 for simplicity (w_0 is the constant)
     pt_z      = zeros(N_z, N_z)          # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
     flag_z    = zeros(Int64, N_z)        # convergence/effort/wage flags
@@ -223,7 +224,9 @@ function getModel(modd)
         err_IR_z[iz]  = IR_err
 
         if flag_z[iz] < 1             
-            # Expected output  a(z_i | z_j)*z_i
+           
+            # Expected effort and output  a(z_i | z_j)*z_i
+            a_z[:,iz]     = az
             y_z[:,iz]     = yz
 
             # Marginal disutility of effort, given z_0 = z
@@ -244,6 +247,7 @@ function getModel(modd)
     return (θ_z          = θ_z,                 # θ(z)
             f_z          = f_z,                 # f(θ(z))
             hp_z         = hp_z,                # h'(a(z_i | z_j))
+            a_z          = a_z,                 # a(z_i | z_j)*z_i
             y_z          = y_z,                 # a(z_i | z_j)*z_i
             lw1_z        = lw1_z,               # E[log w1|z] <- wages of new hires -- denote it by time 1 for simplicity (w_0 is the constant)
             pt_z         = pt_z,                # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
