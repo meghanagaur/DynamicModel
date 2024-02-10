@@ -67,7 +67,7 @@ Solve the infinite horizon EGSS model with TIOLI using a bisection search on θ.
 function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_iter3 = 1000, a_min = 10^-6,
     tol1 = 10^-8, tol2 = 10^(-10), tol3 =  10^(-10), noisy = false, q_lb_0 =  0.0, q_ub_0 = 1.0, check_mult = false)
 
-    @unpack β, s, κ, ι, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, procyclical, N_z, z_ss_idx = modd  
+    @unpack β, s, κ, ι, σ_η, ω, N_z, q, u, h, hp, zgrid, P_z, ψ, N_z, z_ss_idx = modd  
     
     # find index of z_0 on the productivity grid 
     if isnothing(z_0)
@@ -215,7 +215,7 @@ function getModel(modd)
 
         # Solve the model for z_0 = zgrid[iz]
         sol = solveModel(modd; z_0 = zgrid[iz])
-        @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, flag_IR, az, yz, w_0, θ, Y = sol
+        @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, flag_IR, az, yz, w_0, θ, Y, W = sol
         
         # Record flags
         flag_z[iz]    = maximum([conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag])
