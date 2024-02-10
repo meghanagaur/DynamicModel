@@ -200,8 +200,10 @@ function getModel(modd)
     @unpack hp, zgrid, logz, N_z, P_z, p_z, ψ, f, s, σ_η, χ, γ, hbar, ε, z_ss_idx, ρ, σ_ϵ = modd 
 
     # Build vectors     
-    θ_z       = zeros(N_z)               # θ(z_1)
-    f_z       = zeros(N_z)               # f(θ(z_1))
+    θ_z       = zeros(N_z)               # θ(z)
+    f_z       = zeros(N_z)               # f(θ(z))
+    W_z       = zeros(N_z)               # EPDV OF wages  
+    Y_z       = zeros(N_z)               # EPDV OF output 
     hp_z      = zeros(N_z, N_z)          # h'(a(z_i | z_j))
     y_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
     a_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
@@ -240,6 +242,10 @@ function getModel(modd)
 
             # Compute expected passthrough: elasticity of w_it wrt y_it 
             pt_z[:,iz]    = ψ*hbar*az.^(1 + 1/ε)
+
+            # EPDV OF output and wages
+            Y_z[iz]         = Y
+            W_z[iz]         = W
         end
     end
 
@@ -253,8 +259,8 @@ function getModel(modd)
             flag_z       = flag_z,              # convergence/effort/wage flags
             flag_IR_z    = flag_IR_z,           # IR flags
             err_IR_z     = err_IR_z,            # IR error
-            W            = W,                   # EPDV wages
-            Y            = Y)                   # EPDV output
+            W            = W_z,                 # EPDV wages
+            Y            = Y_z)                 # EPDV output
 end
 
 """
