@@ -195,7 +195,7 @@ end
 """
 Solve model for each initial z_0 in zgrid
 """
-function getModel(modd)
+function getModel(modd; check_mult = false)
 
     @unpack hp, zgrid, logz, N_z, P_z, p_z, ψ, f, s, σ_η, χ, γ, hbar, ε, z_ss_idx, ρ, σ_ϵ = modd 
 
@@ -216,7 +216,7 @@ function getModel(modd)
     Threads.@threads for iz = 1:N_z
 
         # Solve the model for z_0 = zgrid[iz]
-        sol = solveModel(modd; z_0 = zgrid[iz])
+        sol = solveModel(modd; z_0 = zgrid[iz], check_mult = check_mult)
         @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, IR_flag, az, yz, w_0, θ, Y, W = sol
         
         # Record flags
