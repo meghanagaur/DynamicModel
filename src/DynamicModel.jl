@@ -2,7 +2,7 @@
 Package published at https://github.com/meghanagaur/DynamicModel. =#
 module DynamicModel # begin module
 
-export  rouwenhorst, model, solveModel, unemploymentValue, simulateProd, optA
+export rouwenhorst, model, solveModel, getModel, unemploymentValue, simulateProd, optA
 # simulateWages, solveModelSavings, simulateWagesSavings,unemploymentValueSavings
 
 using DataStructures, Distributions, ForwardDiff, Interpolations,
