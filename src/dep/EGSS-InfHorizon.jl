@@ -85,7 +85,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
     err3    = 10
     iter3   = 1
     IR_err  = 10
-    flag_IR = 0
+    IR_flag = 0
 
     # Initialize default values and search parameters
     ω_0    = ω[z_0_idx] 
@@ -215,7 +215,7 @@ function getModel(modd)
 
         # Solve the model for z_0 = zgrid[iz]
         sol = solveModel(modd; z_0 = zgrid[iz])
-        @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, flag_IR, az, yz, w_0, θ, Y, W = sol
+        @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, IR_flag, az, yz, w_0, θ, Y, W = sol
         
         # Record flags
         flag_z[iz]    = maximum([conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag])
