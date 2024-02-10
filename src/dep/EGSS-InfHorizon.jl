@@ -219,7 +219,7 @@ function getModel(modd)
         
         # Record flags
         flag_z[iz]    = maximum([conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag])
-        flag_IR_z[iz] = flag_IR
+        flag_IR_z[iz] = IR_flag
         err_IR_z[iz]  = IR_err
 
         if flag_z[iz] < 1             
