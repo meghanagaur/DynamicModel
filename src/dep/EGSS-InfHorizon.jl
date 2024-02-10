@@ -88,8 +88,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
     flag_IR = 0
 
     # Initialize default values and search parameters
-    ω_0    = procyclical ? ω[z_0_idx] : ω # unemployment value at z_0
-    ω_vec  = procyclical ?  copy(ω) : ω*ones(N_z)
+    ω_0    = ω[z_0_idx] 
     q_lb   = q_lb_0          # lower search bound for q
     q_ub   = q_ub_0          # upper search bound for q
     q_0    = (q_lb + q_ub)/2 # initial guess for q
@@ -141,7 +140,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         # Solve recursively for the PV utility from the contract
         err3  = 10
         iter3 = 1  
-        W_0   = copy(ω_vec) # initial guess
+        W_0   = copy(ω) # initial guess
         flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω_vec)
 
         @inbounds while err3 > tol3 && iter3 <= max_iter3
@@ -188,7 +187,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
 
     end
 
-    return (θ = (q_0^(-ι) - 1)^(1/ι), q = q_0, Y = Y_0[z_0_idx], W = w_0/ψ, U = U, ω = ω_0, w_0 = w_0, IR_err = err1*IR_flag, IR_flag = IR_flag,
+    return (θ = (q_0^(-ι) - 1)^(1/ι), q = q_0, Y = Y_0[z_0_idx], W = w_0/ψ, w_0 = w_0, IR_err = err1*IR_flag, IR_flag = IR_flag,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
     effort_flag = maximum(a_flag), conv_flag1 = (iter1 > max_iter1), conv_flag2 = (iter2 > max_iter2), conv_flag3 = (iter3 > max_iter3))
 end
