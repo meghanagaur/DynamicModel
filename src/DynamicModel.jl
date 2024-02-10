@@ -1,4 +1,4 @@
-#= Solve the dynamic EGSS model (first pass). Annual calibration 
+#= Solve the dynamic EGSS model. Annual calibration 
 Package published at https://github.com/meghanagaur/DynamicModel. =#
 module DynamicModel # begin module
 

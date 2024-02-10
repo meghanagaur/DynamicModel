@@ -141,7 +141,7 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
         err3  = 10
         iter3 = 1  
         W_0   = copy(ω) # initial guess
-        flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω_vec)
+        flow  = -(1/(2ψ))*(ψ*hp.(az)*σ_η).^2 - h.(az) + β*s*(P_z*ω)
 
         @inbounds while err3 > tol3 && iter3 <= max_iter3
             W_1  = flow + β*(1-s)*(P_z*W_0)
