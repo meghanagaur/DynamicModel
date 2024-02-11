@@ -79,7 +79,6 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
     # set tolerance parameters for outermost loop
     err1    = 10
     iter1   = 1
-    # initialize tolerance parameters for inner loops (for export)
     err2    = 10
     iter2   = 1
     err3    = 10
@@ -189,13 +188,13 @@ function solveModel(modd; z_0 = nothing, max_iter1 = 50, max_iter2 = 1000, max_i
 
     return (θ = (q_0^(-ι) - 1)^(1/ι), q = q_0, Y = Y_0[z_0_idx], W = w_0/ψ, w_0 = w_0, IR_err = err1*IR_flag, IR_flag = IR_flag,
     az = az, yz = yz, err1 = err1, err2 = err2, err3 = err3, iter1 = iter1, iter2 = iter2, iter3 = iter3, wage_flag = (w_0 <= 0),
-    effort_flag = maximum(a_flag), conv_flag1 = (iter1 > max_iter1), conv_flag2 = (iter2 > max_iter2), conv_flag3 = (iter3 > max_iter3))
+    effort_flag = maximum(a_flag), conv_flag1 = (err1 > tol1), conv_flag2 = (err2 > tol2), conv_flag3 = (err3 > tol3))
 end
 
 """
 Solve model for each initial z_0 in zgrid
 """
-function getModel(modd; check_mult = false)
+function getModel(modd; check_mult = false, noisy = false)
 
     @unpack hp, zgrid, logz, N_z, P_z, p_z, ψ, f, s, σ_η, χ, γ, hbar, ε, z_ss_idx, ρ, σ_ϵ = modd 
 
@@ -207,7 +206,9 @@ function getModel(modd; check_mult = false)
     hp_z      = zeros(N_z, N_z)          # h'(a(z_i | z_j))
     y_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
     a_z       = zeros(N_z, N_z)          # a(z_i | z_j)*z_i
-    lw1_z     = zeros(N_z)               # E[log w1|z] <- wages of new hires -- denote it by time 1 for simplicity (w_0 is the constant)
+    w_0       = zeros(N_z)               # w_0 is the initialization for log wages
+    lw0_z     = zeros(N_z)               # log w_0 is the initialization for log wages
+    lw1_z     = zeros(N_z)               # E[log w1|z] -- denote it by time 1 for simplicity (w_0 is the constant)
     pt_z      = zeros(N_z, N_z)          # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
     flag_z    = zeros(Int64, N_z)        # convergence/effort/wage flags
     flag_IR_z = zeros(Int64, N_z)        # IR flags
@@ -216,7 +217,7 @@ function getModel(modd; check_mult = false)
     Threads.@threads for iz = 1:N_z
 
         # Solve the model for z_0 = zgrid[iz]
-        sol = solveModel(modd; z_0 = zgrid[iz], check_mult = check_mult)
+        sol = solveModel(modd; z_0 = zgrid[iz], check_mult = check_mult, noisy = noisy)
         @unpack conv_flag1, conv_flag2, conv_flag3, wage_flag, effort_flag, IR_err, IR_flag, az, yz, w_0, θ, Y, W = sol
         
         # Record flags
@@ -234,7 +235,9 @@ function getModel(modd; check_mult = false)
             hp_z[:,iz]    = hp.(az)  # h'(a(z|z_1))
 
             # Expectation of the log wage of new hires, given z_0 = z
-            lw1_z[iz]     = log(max(eps(), w_0)) - 0.5*(ψ*hp_z[iz, iz]*σ_η)^2 
+            w0_z[iz]      = w_0
+            lw0_z[iz]     = log(max(eps(), w_0)) 
+            lw1_z[iz]     = lw0_z[iz] - 0.5*(ψ*hp_z[iz, iz]*σ_η)^2 
             
             # Tightness and job-finding rate, given z_0 = z
             θ_z[iz]       = θ      
@@ -254,7 +257,9 @@ function getModel(modd; check_mult = false)
             hp_z         = hp_z,                # h'(a(z_i | z_j))
             a_z          = a_z,                 # a(z_i | z_j)*z_i
             y_z          = y_z,                 # a(z_i | z_j)*z_i
-            lw1_z        = lw1_z,               # E[log w1|z] <- wages of new hires -- denote it by time 1 for simplicity (w_0 is the constant)
+            w0_z         = w_0,                 # w_0 is the initialization for log wages
+            lw0_z        = lw0_z,               # w_0 is the initialization for log wages
+            lw1_z        = lw1_z,               # E[log w1|z] -- denote it by time 1 for simplicity (w_0 is the constant)
             pt_z         = pt_z,                # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
             flag_z       = flag_z,              # convergence/effort/wage flags
             flag_IR_z    = flag_IR_z,           # IR flags
