@@ -257,7 +257,7 @@ function getModel(modd; check_mult = false, noisy = false)
             hp_z         = hp_z,                # h'(a(z_i | z_j))
             a_z          = a_z,                 # a(z_i | z_j)*z_i
             y_z          = y_z,                 # a(z_i | z_j)*z_i
-            w0_z         = w_0,                 # w_0 is the initialization for log wages
+            w0_z         = w0_z,                # w_0 is the initialization for log wages
             lw0_z        = lw0_z,               # w_0 is the initialization for log wages
             lw1_z        = lw1_z,               # E[log w1|z] -- denote it by time 1 for simplicity (w_0 is the constant)
             pt_z         = pt_z,                # pass-through: ψ*hbar*a(z_i | z_j)^(1 + 1/ε)
